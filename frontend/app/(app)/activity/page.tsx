@@ -26,6 +26,19 @@ const ACTION_LABEL: Record<string, string> = {
   CALENDAR_EVENT_CREATED: "Calendar reminder created",
   CALENDAR_EVENT_UPDATED: "Calendar reminder updated",
   CALENDAR_EVENT_DELETED: "Calendar reminder removed",
+  ERROR_REPORTED: "Error reported",
+  ERROR_UPDATED: "Error report updated",
+  ERROR_STATUS_CHANGED: "Error workflow step",
+  CORRECTION_COMPLETED: "Correction completed",
+  SHIFT_REVIEW_SAVED: "End-of-shift review saved",
+  WEEKLY_REVIEW_SAVED: "Weekly review saved",
+  LEARNING_ITEM_CREATED: "Learning item added",
+  LEARNING_PROGRESS: "Learning progress",
+  FEEDBACK_RECORDED: "Feedback recorded",
+  FEEDBACK_APPLIED: "Feedback applied",
+  SKILL_LEVEL_CHANGED: "Skill level changed",
+  DEVELOPMENT_PLAN_UPDATED: "30/60/90 plan updated",
+  GOAL_UPDATED: "Development goal updated",
 };
 
 function describe(item: AuditItem): string | null {
@@ -59,12 +72,13 @@ export default function ActivityPage() {
           {data.items.map((item) => {
             const detail = describe(item);
             const isTask = item.entity === "task" && item.action !== "TASK_DELETED";
+            const isError = item.entity === "error";
             return (
               <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium text-slate-900">
-                    {isTask && item.entity_id ? (
-                      <Link href={`/tasks/${item.entity_id}`} className="hover:underline">
+                    {(isTask || isError) && item.entity_id ? (
+                      <Link href={`/${isTask ? "tasks" : "errors"}/${item.entity_id}`} className="hover:underline">
                         {ACTION_LABEL[item.action] ?? item.action}
                       </Link>
                     ) : (

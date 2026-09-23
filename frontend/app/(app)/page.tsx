@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { BellRing, ChevronRight, Plus } from "lucide-react";
+import { BellRing, ChevronRight, NotebookPen, Plus } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -86,6 +86,29 @@ function Dashboard() {
           </Card>
 
           <WorkloadRisk plan={plan} />
+
+          {(() => {
+            const endingSoon =
+              plan.shift.status === "AFTER_SHIFT" || (plan.shift.status === "ON_SHIFT" && plan.shift.available_minutes <= 60);
+            return (
+              <Link
+                href="/reviews"
+                className={clsx(
+                  "flex items-center gap-3 rounded-2xl border p-3 text-sm",
+                  endingSoon ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white",
+                )}
+              >
+                <NotebookPen className="h-5 w-5 shrink-0 text-brand-700" aria-hidden />
+                <span className="flex-1">
+                  <span className="font-semibold text-slate-900">End-of-shift review</span>
+                  <span className="block text-slate-600">
+                    {endingSoon ? "Your shift is ending. Take two minutes to review today." : "See today's numbers and write a short reflection."}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
+              </Link>
+            );
+          })()}
 
           {alerts && alerts.alerts.length > 0 && (
             <section>

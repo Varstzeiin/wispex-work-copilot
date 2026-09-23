@@ -66,3 +66,56 @@ export const COMMON_DOCUMENTS = [
   "Certificate of Origin",
   "Insurance Certificate",
 ];
+
+// ---------- MVP 2 ----------
+
+export const ERROR_CATEGORY_LABEL: Record<string, string> = {
+  TYPOGRAPHICAL: "Typographical",
+  DATA_READING: "Data reading",
+  DATA_ENTRY: "Data entry",
+  MISSING_INFORMATION: "Missing information",
+  CROSS_DOCUMENT: "Cross-document discrepancy",
+  SOP_PROCEDURE: "SOP / procedure",
+  COMMUNICATION: "Communication",
+  TIME_MANAGEMENT: "Time management",
+  OTHER: "Other",
+};
+
+export const SEVERITY_STYLE: Record<string, string> = {
+  CRITICAL: "bg-red-600 text-white",
+  HIGH: "bg-orange-100 text-orange-900",
+  MEDIUM: "bg-amber-100 text-amber-900",
+  LOW: "bg-slate-100 text-slate-700",
+};
+
+export const ERROR_STATUS: Record<string, { label: string; style: string }> = {
+  REPORTED: { label: "Reported", style: "bg-red-100 text-red-800" },
+  NOTIFIED: { label: "Notified", style: "bg-orange-100 text-orange-900" },
+  CORRECTING: { label: "Correcting", style: "bg-sky-100 text-sky-800" },
+  RESOLVED: { label: "Resolved", style: "bg-emerald-100 text-emerald-800" },
+};
+
+export const LEARNING_CATEGORY_LABEL: Record<string, string> = {
+  SOP: "SOP",
+  DOCUMENT: "Document",
+  TERMINOLOGY: "Terminology",
+  PROCEDURE: "Procedure",
+  SYSTEM: "System",
+  LESSON: "Lesson learned",
+  OTHER: "Other",
+};
+
+export const LEARNING_STATUS: Record<string, { label: string; style: string }> = {
+  TO_LEARN: { label: "To learn", style: "bg-slate-100 text-slate-700" },
+  LEARNING: { label: "Learning", style: "bg-sky-100 text-sky-800" },
+  UNDERSTOOD: { label: "Understood", style: "bg-emerald-100 text-emerald-800" },
+  APPLIED: { label: "Applied", style: "bg-emerald-600 text-white" },
+};
+
+/** Status palette is reserved for state and always shown with an icon and a label. */
+export const INDICATOR_STATUS: Record<string, { label: string; icon: string; style: string }> = {
+  GOOD: { label: "Good", icon: "✓", style: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+  WATCH: { label: "Watch", icon: "!", style: "bg-amber-50 text-amber-900 border-amber-200" },
+  NEEDS_ATTENTION: { label: "Needs attention", icon: "▲", style: "bg-red-50 text-red-800 border-red-200" },
+  NO_DATA: { label: "No data yet", icon: "–", style: "bg-slate-50 text-slate-600 border-slate-200" },
+};

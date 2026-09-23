@@ -298,7 +298,7 @@ def seed_performance(db: Session, user: User, settings: UserSettings, now: datet
     # 30 / 60 / 90 plan: currently in the 60-day phase
     today = local_today(settings)
     db.add(DevelopmentPlan(user_id=user.id, start_date=today - timedelta(days=40)))
-    done_map = {30: [True, True, True, False], 60: [False, True, False, False], 90: [False] * 4}
+    done_map = {30: [True, True, True, False], 60: [False, False, False, True], 90: [False] * 4}
     for phase, titles in DEFAULT_GOALS.items():
         for position, title in enumerate(titles):
             done = done_map[phase][position]
@@ -311,7 +311,13 @@ def seed_performance(db: Session, user: User, settings: UserSettings, now: datet
                     position=position,
                     done=done,
                     done_at=now - timedelta(days=15 - position) if done else None,
-                    evidence="Checked with supervisor in week 3" if done and phase == 30 else "",
+                    evidence=(
+                        "Checked with supervisor in week 3"
+                        if done and phase == 30
+                        else "2 of 3 feedback items applied, with evidence"
+                        if done
+                        else ""
+                    ),
                 )
             )
 

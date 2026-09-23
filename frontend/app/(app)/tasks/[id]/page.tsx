@@ -179,6 +179,13 @@ export default function TaskDetailPage() {
               View activity log
             </Link>
           </Card>
+          <Card>
+            <SectionTitle>Found a mistake in submitted work?</SectionTitle>
+            <p className="text-sm text-slate-600">Report it as soon as you confirm it. The workflow guides you step by step.</p>
+            <LinkButton href={`/errors/new?task=${task.id}`} className="mt-2">
+              Report an error
+            </LinkButton>
+          </Card>
         </div>
       </div>
 
