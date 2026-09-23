@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
 from app.core.security import hash_password
+from app.demo.performance_seed import seed_performance
 from app.models import Client, Shipment, Task, User, UserSettings
 from app.services import audit_service
 from app.services.task_service import refresh_priority
@@ -140,7 +141,10 @@ def create_demo_user(db: Session) -> User:
             estimated_minutes=spec["est"],
             required_documents=list(spec["docs"]),
             available_documents=list(spec["have"]),
-            issues=spec.get("issues", []),
+            issues=[
+                {**i, "created_at": (created + timedelta(minutes=20)).isoformat(), "resolved_at": None}
+                for i in spec.get("issues", [])
+            ],
             assigned_action=spec.get("action", ""),
             notes=spec.get("notes", ""),
             created_at=created,
@@ -155,6 +159,7 @@ def create_demo_user(db: Session) -> User:
         db.flush()
         refresh_priority(task, settings, now)
 
+    seed_performance(db, user, settings, now)
     audit_service.log(db, user.id, "DEMO_SESSION_STARTED", "user", user.id, metadata={"tasks": 15})
     db.commit()
     return user

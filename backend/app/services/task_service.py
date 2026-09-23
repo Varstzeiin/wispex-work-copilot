@@ -69,10 +69,17 @@ def _get_or_create_shipment(
 
 
 def _normalise_issues(issues) -> list[dict]:
+    """Assign IDs and timestamps. Timestamps feed the daily and weekly reviews."""
+    now = utcnow().isoformat()
     out = []
     for issue in issues:
-        data = issue.model_dump()
+        data = issue.model_dump(mode="json")
         data["id"] = data.get("id") or secrets.token_hex(6)
+        data["created_at"] = data.get("created_at") or now
+        if data["resolved"]:
+            data["resolved_at"] = data.get("resolved_at") or now
+        else:
+            data["resolved_at"] = None
         out.append(data)
     return out
 

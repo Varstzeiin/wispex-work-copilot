@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import audit, auth, calendar, demo, planner, settings, tasks
+from app.api import audit, auth, calendar, demo, errors, growth, learning, planner, reviews, settings, tasks
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.core.security import require_csrf_header
@@ -85,7 +85,11 @@ async def unexpected_error(request: Request, exc: Exception):
 
 
 protected = [Depends(require_csrf_header)]
-for router in (auth.router, demo.router, tasks.router, planner.router, settings.router, calendar.router, audit.router):
+routers = (
+    auth.router, demo.router, tasks.router, planner.router, settings.router, calendar.router, audit.router,
+    errors.router, reviews.router, learning.router, growth.router,
+)
+for router in routers:
     app.include_router(router, prefix="/api", dependencies=protected)
 
 

@@ -25,6 +25,8 @@ class IssueIn(BaseModel):
     type: IssueType = "OTHER"
     description: str = Field(min_length=1, max_length=500)
     resolved: bool = False
+    created_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
 
 
 def _clean_doc_list(value: list[str]) -> list[str]:
