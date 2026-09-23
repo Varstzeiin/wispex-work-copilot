@@ -116,6 +116,7 @@ class CalendarLinkOut(BaseModel):
     provider: str
     sync_status: str
     event_start: datetime
+    reminder_minutes: list[int] = []
 
 
 class TaskOut(BaseModel):

@@ -1,0 +1,231 @@
+# Wispex Work Copilot
+
+A mobile-first PWA that helps a Data Prep Officer in customs clearance and international logistics
+**prioritise work, manage deadlines and verify before submitting**. It is a planning and
+decision-support assistant, not an autonomous customs decision-maker.
+
+> **PROGRESS → VERIFY → REFER → ESCALATE → DOCUMENT → IMPROVE**
+> Accuracy → Reliability → Independence → Trust. Never speed at the expense of accuracy.
+
+The employee stays responsible for every decision and submission. The app only recommends, and it
+always shows *why*.
+
+---
+
+## Status: MVP 1 (Work Management) is complete
+
+The spec asks for feature-by-feature delivery. MVP 1 is fully implemented and tested. Later phases are
+visible in the app but clearly labelled **Coming Later**. There are no buttons that pretend to work.
+
+| Area | Status |
+|---|---|
+| Authentication (email + password, httpOnly session cookie, CSRF protection, rate limiting) | ✅ Done |
+| Dashboard with deadline alerts, workload risk and “Needs attention” | ✅ Done |
+| Task Inbox (search with debounce, filters, sort, server-side pagination) | ✅ Done |
+| Priority engine (backend, configurable weights, reasons + factor breakdown) | ✅ Done |
+| ETA + deadline engine (SAFE / WATCH / URGENT / CRITICAL / OVERDUE, early warning, timezone aware) | ✅ Done |
+| Live countdowns | ✅ Done |
+| Daily planner (dynamic queue, projected times, at-risk detection, shift aware, overnight shifts) | ✅ Done |
+| “What should I work on now?” with explanation and missing-document follow-up | ✅ Done |
+| Task status workflow with verification gate before completion | ✅ Done |
+| Guidance status model 🟢 🟡 🟠 🔴 ⚫ | ✅ Done |
+| Focus mode | ✅ Done |
+| Google Calendar (OAuth 2.0, idempotent create / update / delete, sync status) | ✅ Built, **Integration Required** (needs your Google OAuth client) |
+| `.ics` calendar export with reminders (works without any integration) | ✅ Done |
+| In-app + browser deadline notifications (configurable, de-duplicated) | ✅ Done |
+| Personal audit trail (append-only) | ✅ Done |
+| PWA (manifest, icons, service worker, offline page) | ✅ Done |
+| Demo mode with fictional data | ✅ Done |
+| Account + data deletion | ✅ Done |
+| MVP 2 Performance (error log, reviews, reliability indicators, 30/60/90) | ⏳ Coming Later |
+| MVP 3 Document intelligence (upload, OCR, extraction, cross-document checks) | ⏳ Coming Later |
+| MVP 4 AI copilot (knowledge/RAG, “I'm not sure”, drafting) | ⏳ Coming Later |
+| MVP 5 Advanced automation | ⏳ Coming Later |
+
+---
+
+## Architecture
+
+```text
+Browser (mobile / desktop)
+      │  same origin, httpOnly cookie
+      ▼
+Next.js 15 PWA  ── /api/* rewrite ──►  FastAPI
+(TypeScript, Tailwind, SWR)             │
+                                        ├── Priority engine   (services/priority_service.py)
+                                        ├── Deadline rules    (rules/deadline_rules.py)
+                                        ├── Daily planner     (services/planner_service.py)
+                                        ├── Calendar service  (services/calendar_service.py → integrations/google_calendar.py)
+                                        ├── Audit log         (services/audit_service.py)
+                                        ▼
+                                  PostgreSQL (Supabase) · SQLite for local dev
+```
+
+Why the API is proxied through Next.js: the session cookie stays first-party (`SameSite=Lax`,
+`HttpOnly`), the browser never sees API secrets, and CORS stays closed.
+
+Business logic (priority, deadlines, planning, completion rules) lives in the backend. The frontend only
+displays it. Only the ticking of countdowns is computed in the browser.
+
+```text
+backend/app
+├── api/           auth, tasks, planner (+ notifications), settings, calendar, audit, demo
+├── core/          config (env vars), database, security (hashing, JWT, CSRF, rate limit, encryption)
+├── models/        users, user_settings, clients, shipments, tasks, calendar_*, audit_logs
+├── rules/         deadline_rules.py (deterministic)
+├── services/      priority, planner, task, calendar, audit, settings
+├── integrations/  google_calendar.py (OAuth + REST, swappable)
+└── demo/          fictional seed data
+
+frontend
+├── app/(app)/     dashboard, tasks, planner, focus, documents, assistant, calendar, settings, activity, more, …
+├── app/login/
+├── components/    ui, navigation, task, forms, assistant
+├── features/      task-management, daily-planner (data hooks)
+├── lib/           api client, hooks, time/timezone utils, labels
+└── public/        sw.js, offline.html, icons
+```
+
+### How priority is calculated
+
+Each factor adds up to a configurable maximum. The total is scaled to 0–100.
+
+| Factor | Default max | Notes |
+|---|---|---|
+| Deadline proximity | 40 | Uses *slack* = time remaining − estimated processing time |
+| ETA proximity | 15 | ETA passed, within 4h, within 12h … |
+| Open issues | 15 | Issues you recorded (mismatch, low confidence, …) |
+| Missing documents | 10 | Share of required documents not received |
+| Client priority | 10 | Only if *you* set it. Not an official SLA |
+| Processing time | 5 | Long tasks should start earlier |
+| Task age | 5 | Open for more than 24h / 48h |
+
+Levels: Critical ≥ 70, High ≥ 50, Medium ≥ 30. A task inside the critical deadline window is always
+Critical, and Critical always sorts above High. Every task shows its reasons and a factor breakdown.
+All weights and deadline thresholds are **personal settings, never presented as company policy**.
+
+### Safeguards that are enforced, not just displayed
+
+- A task cannot be completed while required documents are missing or issues are open.
+- Completing requires an explicit “I verified…” confirmation.
+- Resolving an issue requires writing down how it was resolved (added to the notes with a timestamp).
+- Escalating or holding requires a note (who / why).
+- The app never decides which document is correct.
+- Work is never reassigned automatically. Messages are never sent automatically.
+
+---
+
+## Running locally
+
+Requirements: Python 3.11+, Node 20+.
+
+```bash
+# 1. Backend
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env            # set JWT_SECRET at minimum
+uvicorn app.main:app --reload --port 8000
+
+# 2. Frontend (new terminal)
+cd frontend
+cp .env.example .env.local      # BACKEND_URL=http://localhost:8000
+npm install
+npm run dev
+```
+
+Open http://localhost:3000 and choose **Try the demo (fictional data)**, or create an account.
+API docs (development only): http://localhost:8000/api/docs
+
+To test the PWA install flow and the service worker, use a production build: `npm run build && npm start`.
+
+### Running the tests
+
+```bash
+cd backend && pytest -q                 # 46 tests: rules, priority, planner, auth, authorization, tasks, calendar (mocked Google)
+cd frontend && npm test                 # unit tests (countdown, timezone conversion)
+cd frontend && npm run lint && npm run typecheck
+
+# End-to-end (mobile + desktop viewports). Start backend and `npm run build && npm start` first.
+cd frontend && npx playwright test
+```
+
+CI (`.github/workflows/ci.yml`) runs lint, type checks, unit tests and the production build on every push.
+
+---
+
+## Configuration
+
+All secrets come from environment variables. See `backend/.env.example` and `frontend/.env.example`.
+Nothing secret is ever sent to the browser.
+
+| Variable | Where | Purpose |
+|---|---|---|
+| `DATABASE_URL` | backend | `postgresql+psycopg://…` for Supabase. Defaults to local SQLite |
+| `JWT_SECRET` | backend | Session signing key. **Required in production** |
+| `COOKIE_SECURE` | backend | `true` in staging / production (HTTPS) |
+| `ENCRYPTION_KEY` | backend | Fernet key for OAuth tokens at rest. **Required in production** |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | backend | Enables Google Calendar sync |
+| `FRONTEND_URL` | backend | Where the OAuth callback redirects back to |
+| `DEMO_MODE_ENABLED` | backend | Set `false` in production if demo accounts are not wanted |
+| `BACKEND_URL` | frontend (server only) | Where Next.js forwards `/api/*` |
+
+The default timezone is `Asia/Jakarta`. Each user can change timezone and shift in Settings.
+
+### Enabling Google Calendar
+
+1. Only after your organization authorizes it: create an OAuth client (type *Web application*) in Google Cloud.
+2. Add the redirect URI `https://<your-frontend>/api/calendar/google/callback`.
+3. Set the three `GOOGLE_*` variables on the backend and restart.
+4. In the app: **Calendar → Connect Google Calendar**.
+
+Only the `calendar.events` scope is requested. Events are created with a deterministic ID per task, so
+retries never create duplicates. Changing a deadline marks the event *out of date* until you update it.
+Without Google, every reminder can be downloaded as an `.ics` file (with the same reminders).
+
+---
+
+## Deployment
+
+| Part | Suggested |
+|---|---|
+| Frontend | Vercel (`BACKEND_URL` = backend URL) |
+| Backend | Render / Railway / Cloud Run (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`) |
+| Database | Supabase PostgreSQL |
+
+Use separate development, staging and production environments. Never develop against production data.
+
+Production checklist: `APP_ENV=production`, strong `JWT_SECRET`, `ENCRYPTION_KEY`, `COOKIE_SECURE=true`,
+HTTPS everywhere, `DEMO_MODE_ENABLED=false` if not needed. In production the API docs are disabled and
+the app refuses to start with development secrets.
+
+---
+
+## Security and privacy
+
+- Passwords: PBKDF2-SHA256 (390k iterations, per-user salt).
+- Sessions: signed JWT in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in production).
+- CSRF: every state-changing request must carry a custom header that cross-site pages cannot add.
+- Authorization: every query is scoped to the signed-in user. Another user's task returns 404.
+- OAuth: one-time `state` bound to the signed-in user. Tokens are encrypted at rest (Fernet).
+- Rate limiting on sign-in, registration and demo creation.
+- Security headers on both apps (CSP, `X-Frame-Options: DENY`, `nosniff`, HSTS in production).
+  API responses are `Cache-Control: no-store`.
+- The service worker caches only static assets and the offline page. **API data is never cached.**
+  When offline, the app says so and disables actions that change data instead of pretending to sync.
+- The audit log stores actions and statuses only, never document content.
+- Friendly error messages to users. Technical details stay in server logs.
+- Demo mode uses fictional clients and shipments only. Demo accounts are deleted after 24 hours.
+- Users can delete their account and all related data from Settings.
+
+> ⚠️ Do not upload or enter confidential company or client information unless your organization's
+> policy explicitly permits this application (and any AI provider) to process it.
+
+## Known limitations and next steps
+
+- Database tables are created at startup (`create_all`). Add Alembic migrations before the first
+  production schema change.
+- The rate limiter is in-memory (single instance). Use Redis when running several instances.
+- Google sign-in for the app itself is not implemented yet (Google is used only for Calendar).
+- MVP 3 will need object storage (Supabase Storage) and a background worker (e.g. RQ + Redis) for
+  document processing. Neither is required for MVP 1.

@@ -1,0 +1,68 @@
+import type { DeadlineStatus, Guidance, IssueType, PriorityLevel, TaskStatus } from "@/types";
+
+export const STATUS_LABEL: Record<TaskStatus, string> = {
+  NEW: "New",
+  IN_PROGRESS: "In progress",
+  WAITING: "Waiting",
+  NEEDS_REVIEW: "Needs review",
+  ESCALATED: "Escalated",
+  COMPLETED: "Completed",
+  ON_HOLD: "On hold",
+  CANCELLED: "Cancelled",
+};
+
+export const LEVEL_STYLE: Record<PriorityLevel, string> = {
+  CRITICAL: "bg-red-600 text-white",
+  HIGH: "bg-orange-500 text-white",
+  MEDIUM: "bg-amber-100 text-amber-900",
+  LOW: "bg-slate-100 text-slate-700",
+  NONE: "bg-slate-100 text-slate-500",
+};
+
+export const DEADLINE_STYLE: Record<DeadlineStatus, { text: string; bg: string; label: string; dot: string }> = {
+  OVERDUE: { text: "text-red-800", bg: "bg-red-100", label: "OVERDUE", dot: "🔴" },
+  CRITICAL: { text: "text-red-700", bg: "bg-red-50", label: "CRITICAL", dot: "🔴" },
+  URGENT: { text: "text-orange-700", bg: "bg-orange-50", label: "URGENT", dot: "🟠" },
+  WATCH: { text: "text-amber-700", bg: "bg-amber-50", label: "WATCH", dot: "🟡" },
+  SAFE: { text: "text-emerald-700", bg: "bg-emerald-50", label: "SAFE", dot: "🟢" },
+  NO_DEADLINE: { text: "text-slate-500", bg: "bg-slate-50", label: "NO DEADLINE", dot: "⚪" },
+};
+
+/** The human-in-the-loop status model. Guidance only, never a decision. */
+export const GUIDANCE: Record<Guidance, { emoji: string; label: string; style: string }> = {
+  SAFE_TO_PROCEED: { emoji: "🟢", label: "Safe to proceed", style: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+  VERIFY: { emoji: "🟡", label: "Verify", style: "bg-amber-50 text-amber-900 border-amber-200" },
+  ASK: { emoji: "🟠", label: "Ask", style: "bg-orange-50 text-orange-900 border-orange-200" },
+  ESCALATE: { emoji: "🔴", label: "Escalate", style: "bg-red-50 text-red-800 border-red-200" },
+  HOLD: { emoji: "⚫", label: "Hold", style: "bg-slate-100 text-slate-800 border-slate-300" },
+};
+
+export const ISSUE_LABEL: Record<IssueType, string> = {
+  QUANTITY_MISMATCH: "Quantity mismatch",
+  WEIGHT_MISMATCH: "Weight mismatch",
+  DESCRIPTION_MISMATCH: "Description mismatch",
+  VALUE_MISMATCH: "Value mismatch",
+  MISSING_INFORMATION: "Missing information",
+  LOW_CONFIDENCE: "Hard to read / low confidence",
+  COMPLIANCE_QUESTION: "Compliance question",
+  OTHER: "Other",
+};
+
+export const FACTOR_LABEL: Record<string, string> = {
+  deadline: "Deadline proximity",
+  eta: "ETA proximity",
+  risk: "Open issues",
+  missing_documents: "Missing documents",
+  client_priority: "Client priority",
+  complexity: "Processing time",
+  task_age: "Task age",
+};
+
+export const COMMON_DOCUMENTS = [
+  "Commercial Invoice",
+  "Packing List",
+  "Bill of Lading",
+  "Air Waybill",
+  "Certificate of Origin",
+  "Insurance Certificate",
+];

@@ -296,6 +296,7 @@ def serialize_task(
                 "provider": calendar_event.provider,
                 "sync_status": calendar_event.sync_status,
                 "event_start": calendar_event.event_start,
+                "reminder_minutes": calendar_event.reminder_minutes or [],
             }
             if calendar_event
             else None

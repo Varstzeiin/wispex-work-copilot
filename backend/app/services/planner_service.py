@@ -65,6 +65,8 @@ def _sort_key(task_dict: dict):
 
 
 def _next_action(t: dict) -> str:
+    if t["deadline"]["overdue"]:
+        return "Deadline passed. Inform the appropriate person per the SOP, then complete carefully"
     if t["missing_documents"]:
         return f"Request missing: {', '.join(t['missing_documents'])}. Continue verified parts meanwhile"
     if t["open_issue_count"]:
