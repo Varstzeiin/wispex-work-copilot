@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.database import utcnow
 from app.models import (
     AuditLog,
+    Clarification,
     DevelopmentGoal,
     DevelopmentPlan,
     ErrorReport,
@@ -127,6 +128,11 @@ def reliability_indicators(db: Session, user: User, days: int = 30) -> dict:
     documented = [e for e in resolved if e.root_cause and e.prevention_action]
 
     feedback = db.scalars(select(Feedback).where(Feedback.user_id == user.id, Feedback.received_at >= start)).all()
+    questions = db.scalars(
+        select(Clarification).where(Clarification.user_id == user.id, Clarification.created_at >= start)
+    ).all()
+    # "Clear" = linked to a task (context) and carrying evidence: typed evidence or concrete values in the text
+    clear = [q for q in questions if q.task_id and (q.evidence.strip() or any(ch.isdigit() for ch in q.question))]
     applied = [f for f in feedback if f.applied]
     applied_with_evidence = [f for f in applied if f.applied_evidence]
 
@@ -184,9 +190,13 @@ def reliability_indicators(db: Session, user: User, days: int = 30) -> dict:
         _indicator(
             "questions",
             "Questions asked clearly",
-            "Not tracked yet",
-            "NO_DATA",
-            ["Question drafting arrives with the MVP 4 assistant"],
+            _pct(len(clear), len(questions)),
+            status_for(len(clear) / len(questions) if questions else None, 0.8, 0.5),
+            [
+                f"{len(clear)} of {len(questions)} recorded questions were linked to a task and included evidence",
+                f"{sum(1 for q in questions if q.status == 'ANSWERED')} answered",
+            ],
+            note="Only questions recorded through “I'm not sure” are counted. Asking is never counted against you.",
         ),
         _indicator(
             "reported_early",

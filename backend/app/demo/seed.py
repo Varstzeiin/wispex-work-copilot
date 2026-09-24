@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.core.database import utcnow
+from app.core.database import create_user_rows, utcnow
 from app.core.security import hash_password
 from app.demo.assistant_seed import seed_assistant
 from app.demo.document_seed import seed_documents
@@ -110,6 +110,7 @@ def create_demo_user(db: Session) -> User:
         shift_end=end.strftime("%H:%M"),
     )
     db.add(settings)
+    create_user_rows(db, user.id)
 
     clients = {
         "Client A": Client(user_id=user.id, name="Client A", sla_tier="HIGH"),

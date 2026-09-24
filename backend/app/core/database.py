@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Iterator
 
 from sqlalchemy import DateTime, create_engine, event
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.types import TypeDecorator
 
@@ -59,6 +60,34 @@ def get_db() -> Iterator[Session]:
         yield db
     finally:
         db.close()
+
+
+def get_or_create_user_row(db: Session, model, user_id):
+    """Per-user settings row, created on first use.
+
+    New accounts get their rows at sign-up (see create_user_rows), so this only creates rows for
+    accounts that existed before a feature was added. If two parallel requests both create it, the
+    loser rolls back its (read-only) request transaction and uses the row the other one created.
+    """
+    row = db.get(model, user_id)
+    if row is not None:
+        return row
+    row = model(user_id=user_id)
+    db.add(row)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        row = db.get(model, user_id)
+    return row
+
+
+def create_user_rows(db: Session, user_id) -> None:
+    """Settings rows every account needs, created together with the account."""
+    from app.models import AssistantSettings, DocumentSettings
+
+    db.add_all([DocumentSettings(user_id=user_id), AssistantSettings(user_id=user_id)])
+    db.flush()
 
 
 def init_db() -> None:

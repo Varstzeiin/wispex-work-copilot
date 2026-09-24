@@ -357,3 +357,34 @@ def test_claude_rewrite_refusal_and_empty_output():
     with pytest.raises(ProviderError):
         ClaudeProvider(client=StubClaude(text='{"text": ""}')).rewrite_message("Hello there")
     assert ClaudeProvider(client=StubClaude(text='{"text": "Hi."}')).rewrite_message("Hello") == "Hi."
+
+
+def test_settings_rows_exist_from_sign_up_and_are_recreated_for_older_accounts(client):
+    from app.core.database import SessionLocal
+    from app.models import AssistantSettings, DocumentSettings, User
+
+    with SessionLocal() as db:
+        user = db.query(User).one()
+        assert db.get(DocumentSettings, user.id) and db.get(AssistantSettings, user.id)
+        # An account from before MVP 3/4 has no rows yet
+        db.delete(db.get(DocumentSettings, user.id))
+        db.delete(db.get(AssistantSettings, user.id))
+        db.commit()
+    assert client.get("/api/documents/status").status_code == 200
+    assert client.get("/api/assistant/status").status_code == 200
+    assert client.get("/api/documents/settings").json()["final_checklist"]
+
+
+def test_questions_asked_clearly_indicator(client):
+    def indicator():
+        data = client.get("/api/growth/indicators").json()
+        return next(i for i in data["indicators"] if i["key"] == "questions")
+
+    assert indicator()["status"] == "NO_DATA"
+    t = task(client)
+    client.post("/api/assistant/clarifications", json={
+        "task_id": t["id"], "issue": "Quantity differs", "evidence": "Invoice 1,500 vs Packing List 1,550",
+        "question": "Which quantity should be used?"})
+    client.post("/api/assistant/clarifications", json={"issue": "General", "question": "How does this work?"})
+    ind = indicator()
+    assert ind["value"] == "50%" and ind["evidence"][0].startswith("1 of 2 recorded questions")

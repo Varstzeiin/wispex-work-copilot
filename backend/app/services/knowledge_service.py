@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.provider import ProviderError, get_provider
+from app.core.database import get_or_create_user_row
 from app.models import AssistantSettings, Clarification, ErrorReport, KnowledgeNote, LearningItem, User
 from app.services import audit_service
 
@@ -100,7 +101,7 @@ def _corpus(db: Session, user: User) -> list[Source]:
     ).all()
     for c in answered:
         title = f"{c.shipment_reference}: {c.field_name or 'question'}".strip(": ")
-        text = f"Question: {c.issue} {c.question}\nAnswer: {c.answer}"
+        text = f"Question: {c.issue or c.question}\nAnswer: {c.answer}"
         out.append(Source("CLARIFICATION", c.id, title, text, "RESOLVED_CASE", c.asked_to, False, c.kind))
     resolved = db.scalars(
         select(ErrorReport).where(ErrorReport.user_id == user.id, ErrorReport.status == "RESOLVED")
@@ -181,12 +182,7 @@ def public(results: list[dict]) -> list[dict]:
 
 
 def get_assistant_settings(db: Session, user: User) -> AssistantSettings:
-    s = db.get(AssistantSettings, user.id)
-    if s is None:
-        s = AssistantSettings(user_id=user.id, dismissed_suggestions=[])
-        db.add(s)
-        db.flush()
-    return s
+    return get_or_create_user_row(db, AssistantSettings, user.id)
 
 
 def ai_assist_allowed(db: Session, user: User) -> bool:
