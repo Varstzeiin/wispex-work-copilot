@@ -1,0 +1,3 @@
+# Search by meaning (local ONNX model, about 200 MB installed).
+# Optional: without it the app uses keyword search. Left out on Vercel (function size limit).
+fastembed==0.8.1
