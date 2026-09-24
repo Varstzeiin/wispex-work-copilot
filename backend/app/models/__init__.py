@@ -20,6 +20,7 @@ from app.models.performance import (
     Skill,
     WeeklyReview,
 )
+from app.models.stored_file import StoredFile
 from app.models.task import Client, Shipment, Task
 from app.models.user import User, UserSettings
 
@@ -48,6 +49,7 @@ __all__ = [
     "Skill",
     "WeeklyReview",
     "Shipment",
+    "StoredFile",
     "Task",
     "User",
     "UserSettings",

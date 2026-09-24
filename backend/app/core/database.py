@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Iterator
 
-from sqlalchemy import DateTime, create_engine, event
+from sqlalchemy import DateTime, create_engine, event, make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.types import TypeDecorator
@@ -41,11 +41,43 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-_settings = get_settings()
-_connect_args = {"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {}
-engine = create_engine(_settings.database_url, connect_args=_connect_args, pool_pre_ping=True)
+def normalize_database_url(url: str) -> str:
+    """Accept the URL exactly as Supabase, Render or Railway show it.
 
-if _settings.database_url.startswith("sqlite"):
+    They give `postgres://` or `postgresql://`. SQLAlchemy needs the driver name for psycopg 3.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
+def engine_options(url: str) -> dict:
+    """Connection settings per database. PostgreSQL settings are safe for Supabase's pooler."""
+    if url.startswith("sqlite"):
+        return {"connect_args": {"check_same_thread": False}}
+    parsed = make_url(url)
+    connect_args: dict = {
+        # Supabase's pooler (port 6543, transaction mode) cannot keep prepared statements
+        "prepare_threshold": None,
+    }
+    remote = parsed.host not in (None, "", "localhost", "127.0.0.1") and "host" not in parsed.query
+    if remote and "sslmode" not in parsed.query:
+        connect_args["sslmode"] = "require"  # never send data to a hosted database unencrypted
+    return {
+        "connect_args": connect_args,
+        "pool_size": 5,
+        "max_overflow": 5,
+        "pool_recycle": 300,  # hosted databases close idle connections
+    }
+
+
+_settings = get_settings()
+DATABASE_URL = normalize_database_url(_settings.database_url)
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, **engine_options(DATABASE_URL))
+
+if IS_SQLITE:
     # SQLite ignores ON DELETE CASCADE unless foreign keys are switched on per connection
     @event.listens_for(engine, "connect")
     def _enable_sqlite_fk(dbapi_connection, _):

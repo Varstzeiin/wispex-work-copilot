@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 
 from app.ai import embeddings
 from app.api import (
@@ -27,7 +28,8 @@ from app.api import (
     tasks,
 )
 from app.core.config import get_settings
-from app.core.database import init_db
+from app.core.database import get_db, init_db
+from app.core.readiness import log_config_warnings, readiness
 from app.core.security import require_csrf_header
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -37,6 +39,7 @@ logger = logging.getLogger("wispex")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    log_config_warnings(get_settings())
     # Before accepting requests: loading the model mid-traffic can freeze the server (see preload)
     embeddings.preload()
     yield
@@ -116,3 +119,10 @@ for router in routers:
 @app.get("/api/health")
 def health():
     return {"status": "ok", "environment": config.app_env}
+
+
+@app.get("/api/health/ready")
+def health_ready(db: Session = Depends(get_db)):
+    """Checks the database too. Use this as the health check path on Render or Railway."""
+    ok, body = readiness(db, get_settings())
+    return JSONResponse(body, status_code=200 if ok else 503)

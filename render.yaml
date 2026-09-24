@@ -1,0 +1,68 @@
+# Render Blueprint for the Wispex backend (FastAPI).
+# Render → New → Blueprint → pick this repository. Render asks for every value marked `sync: false`.
+# Full step-by-step guide: docs/DEPLOYMENT.md
+#
+# The frontend stays on Vercel. After this service is live, set BACKEND_URL on Vercel to its URL.
+
+services:
+  - type: web
+    name: wispex-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    region: singapore
+    # The search-by-meaning model is downloaded at build time, so start-up needs no internet.
+    # If the download fails the app still works with keyword search.
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      (python -m app.ai.embeddings download || echo "Model download failed: keyword search only")
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Checks the database too, so a wrong DATABASE_URL fails the deploy instead of the users
+    healthCheckPath: /api/health/ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: APP_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+
+      # Secrets: run `python -m app.scripts.generate_secrets` once and paste the two values.
+      # Keep ENCRYPTION_KEY safe: changing it later makes stored documents unreadable.
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+
+      # Supabase → Project Settings → Database → Connection string → "Session pooler" (IPv4)
+      - key: DATABASE_URL
+        sync: false
+
+      # The Vercel address, e.g. https://wispex-work-copilot.vercel.app
+      - key: FRONTEND_URL
+        sync: false
+
+      # Uploaded documents: a private Supabase Storage bucket (the server disk is wiped on deploys)
+      - key: STORAGE_BACKEND
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: documents
+
+      - key: DEMO_MODE_ENABLED
+        value: "true"
+      - key: SEMANTIC_SEARCH
+        value: local
+
+      # Optional. Leave empty to keep these features off ("Integration Required" in the app).
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: AI_PROVIDER
+        sync: false
+      - key: AI_API_KEY
+        sync: false
