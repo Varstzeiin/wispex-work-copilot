@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail, Send, Trash2 } from "lucide-react";
+import { AtSign, Mail, Send, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -8,12 +8,13 @@ import useSWR from "swr";
 
 import { CopyButton } from "@/components/assistant/CopyButton";
 import { RewriteButton } from "@/components/assistant/RewriteButton";
-import { Badge, Button, Card, EmptyState, Field, InlineError, PageHeader, SectionTitle, Spinner, inputClass } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Field, InlineError, Modal, PageHeader, SectionTitle, Spinner, inputClass } from "@/components/ui";
 import { useDrafts, useRefreshAssistant } from "@/features/assistant/hooks";
+import { useAutomationStatus } from "@/features/automation/hooks";
 import { useTasks } from "@/features/task-management/hooks";
 import { api, errorMessage, fetcher } from "@/lib/api/client";
 import { useOnline, useSettings } from "@/lib/hooks";
-import { DRAFT_KIND_LABEL } from "@/lib/utils/labels";
+import { DRAFT_KIND_LABEL, DRAFT_STATUS } from "@/lib/utils/labels";
 import { formatDateTime } from "@/lib/utils/time";
 import type { CommunicationDraft, DraftKind, GeneratedDraft } from "@/types";
 
@@ -176,7 +177,10 @@ function Drafts() {
             </Button>
             <RewriteButton text={draft.body} onRewrite={(body) => setDraft({ ...draft, body })} />
           </div>
-          <p className="mt-3 text-xs text-slate-500">This application never sends messages. Send it yourself through your approved work channel.</p>
+          <p className="mt-3 text-xs text-slate-500">
+            Nothing is sent from here. Copy it and send it yourself, or save it and, if your organization allows it, send it from the saved
+            drafts after reviewing and approving it.
+          </p>
         </Card>
       )}
 
@@ -190,7 +194,9 @@ function SavedDrafts() {
   const { timezone } = useSettings();
   const refresh = useRefreshAssistant();
   const { data } = useDrafts();
+  const { data: channels } = useAutomationStatus();
   const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState<{ draft: CommunicationDraft; via: "email" | "team" } | null>(null);
 
   async function act(d: CommunicationDraft, action: "sent" | "delete") {
     setError(null);
@@ -204,10 +210,18 @@ function SavedDrafts() {
   }
 
   if (!data) return null;
+  const canEmail = !!channels?.email_configured && !!channels.email_allowed;
+  const canTeam = !!channels?.team_configured && !!channels.team_allowed;
   return (
     <section>
       <SectionTitle>Saved drafts</SectionTitle>
       <InlineError message={error} />
+      {channels && !canEmail && !canTeam && (
+        <p className="mb-2 text-xs text-slate-500">
+          Sending from the app: {channels.email_configured || channels.team_configured ? "off (see Settings)" : "Integration Required"}. Copy
+          the text and send it yourself.
+        </p>
+      )}
       {data.items.length === 0 ? (
         <EmptyState title="No saved drafts" />
       ) : (
@@ -223,9 +237,7 @@ function SavedDrafts() {
                       {formatDateTime(d.created_at, timezone)}
                     </span>
                   </span>
-                  <Badge className={d.status === "SENT_MANUALLY" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}>
-                    {d.status === "SENT_MANUALLY" ? "Sent by you" : "Draft"}
-                  </Badge>
+                  <Badge className={DRAFT_STATUS[d.status].style}>{DRAFT_STATUS[d.status].label}</Badge>
                 </summary>
                 <p className="mt-2 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-slate-800">{d.body}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -233,6 +245,16 @@ function SavedDrafts() {
                   {d.status === "DRAFT" && (
                     <Button variant="secondary" onClick={() => act(d, "sent")} disabled={!online}>
                       <Send className="h-4 w-4" aria-hidden /> I sent it myself
+                    </Button>
+                  )}
+                  {d.status === "DRAFT" && canEmail && (
+                    <Button variant="secondary" onClick={() => setSending({ draft: d, via: "email" })} disabled={!online}>
+                      <AtSign className="h-4 w-4" aria-hidden /> Send by email…
+                    </Button>
+                  )}
+                  {d.status === "DRAFT" && canTeam && (
+                    <Button variant="secondary" onClick={() => setSending({ draft: d, via: "team" })} disabled={!online}>
+                      <Users className="h-4 w-4" aria-hidden /> Post to {channels?.team_channel_name}…
                     </Button>
                   )}
                   <Button variant="ghost" onClick={() => act(d, "delete")} disabled={!online} aria-label="Delete draft">
@@ -249,6 +271,79 @@ function SavedDrafts() {
           ))}
         </ul>
       )}
+      {sending && (
+        <SendModal
+          draft={sending.draft}
+          via={sending.via}
+          channelName={channels?.team_channel_name ?? "team channel"}
+          onClose={() => setSending(null)}
+          onSent={async () => {
+            setSending(null);
+            await refresh();
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/** Human review and approval of one specific message before it leaves the application. */
+function SendModal({
+  draft,
+  via,
+  channelName,
+  onClose,
+  onSent,
+}: {
+  draft: CommunicationDraft;
+  via: "email" | "team";
+  channelName: string;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [to, setTo] = useState("");
+  const [approved, setApproved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const recipients = to
+    .split(/[,;\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  async function send() {
+    setBusy(true);
+    setError(null);
+    try {
+      if (via === "email") await api.post(`/api/automation/drafts/${draft.id}/email`, { to: recipients, approve: true });
+      else await api.post(`/api/automation/drafts/${draft.id}/team`, { approve: true });
+      onSent();
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open title={via === "email" ? "Send by email" : `Post to ${channelName}`} onClose={onClose}>
+      <div className="space-y-3 text-sm">
+        {via === "email" && (
+          <Field label="To" htmlFor="send-to" hint="Up to 5 addresses, separated by commas. Check them carefully.">
+            <input id="send-to" type="email" multiple className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
+          </Field>
+        )}
+        <div className="rounded-xl bg-slate-50 p-3">
+          <p className="font-semibold text-slate-900">{draft.subject}</p>
+          <p className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap text-slate-700">{draft.body}</p>
+        </div>
+        <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3">
+          <input type="checkbox" className="mt-0.5 h-5 w-5 accent-brand-600" checked={approved} onChange={(e) => setApproved(e.target.checked)} />
+          <span>I reviewed this message{via === "email" ? " and the recipients" : ""}, and I approve sending it now.</span>
+        </label>
+        <InlineError message={error} />
+        <Button block loading={busy} disabled={!approved || (via === "email" && (recipients.length === 0 || recipients.length > 5))} onClick={send}>
+          {via === "email" ? "Send email" : "Post message"}
+        </Button>
+      </div>
+    </Modal>
   );
 }

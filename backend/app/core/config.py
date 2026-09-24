@@ -46,6 +46,19 @@ class Settings(BaseSettings):
     storage_dir: str = "./storage"
     max_upload_mb: int = 15
     max_pdf_pages: int = 50
+    # Approved outbound integrations (MVP 5). Each also needs the user's confirmation in Settings,
+    # and every single send needs the user's explicit approval.
+    email_provider: str = ""  # "smtp" or "" (disabled)
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    email_from: str = ""
+    # Incoming webhook of the organization's team channel (Slack or Google Chat, JSON {"text": ...})
+    team_webhook_url: str = ""
+    team_channel_name: str = "Team channel"
+
     # Demo sessions per minute per client address. Raise only for automated end-to-end tests.
     demo_rate_limit_per_minute: int = 30
     supabase_url: str = ""

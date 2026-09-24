@@ -12,10 +12,10 @@ always shows *why*.
 
 ---
 
-## Status: MVP 1 to MVP 4 are complete
+## Status: MVP 1 to MVP 5 are complete
 
 The spec asks for feature-by-feature delivery. MVP 1 (Work Management), MVP 2 (Performance), MVP 3
-(Document Intelligence) and MVP 4 (AI Copilot) are implemented and tested. Integrations that need
+(Document Intelligence), MVP 4 (AI Copilot) and MVP 5 (Advanced Automation) are implemented and tested. Integrations that need
 configuration are labelled **Integration Required**. There are no buttons that pretend to work.
 
 | Area | Status |
@@ -59,7 +59,12 @@ configuration are labelled **Integration Required**. There are no buttons that p
 | **MVP 4:** Clarifications and escalations linked to task issues, answers saved as knowledge | ✅ Done |
 | **MVP 4:** Communication drafts (6 types), copy and send yourself, optional AI rewording that keeps every fact | ✅ Done |
 | **MVP 4:** Error analysis and adaptive personal checklist (added only after confirmation) | ✅ Done |
-| MVP 5 Advanced automation | ⏳ Coming Later |
+| **MVP 5:** Workload forecast per working day (deadlines, personal estimate accuracy, typical load, shift) | ✅ Done |
+| **MVP 5:** Pattern detection and process improvement suggestions (dismiss or add to learning) | ✅ Done |
+| **MVP 5:** Patterns per named client, only after explicit permission | ✅ Done |
+| **MVP 5:** Advanced analytics (weekly throughput, on-time rate, estimate vs actual, issues, weekday load) | ✅ Done |
+| **MVP 5:** Approved email sending (SMTP) of reviewed drafts, approval per message | ✅ Built, **Integration Required** (needs `EMAIL_PROVIDER=smtp` + server) |
+| **MVP 5:** Approved team channel posting (Slack / Google Chat incoming webhook), approval per message | ✅ Built, **Integration Required** (needs `TEAM_WEBHOOK_URL`) |
 
 ---
 
@@ -217,6 +222,30 @@ QUESTION → LOCAL HYBRID SEARCH (keywords + meaning, on the server) → SOURCES
 - **Error analysis** summarises the last 30 days. Recurring patterns become checklist suggestions that
   are added to the personal final checklist only after the user reviews (and can edit) them.
 
+### MVP 5: advanced automation
+
+All of it is calculated from the user's own records with simple rules that are shown on screen.
+Nothing changes tasks, settings or assignments (`app/services/analytics_service.py`).
+
+- **Workload forecast** (`/insights`, Workload): for the next 5 working days, expected work is the larger
+  of the tasks already due that day and a typical day of that weekday (last 8 weeks), compared with the
+  shift. Task estimates are scaled by how long the user's tasks really take (median of actual ÷
+  estimate, per transport mode, from at least 5 tasks). Overdue work lands on today. Tasks without a
+  deadline are counted separately. Advice mentions asking for support early; work is never reassigned.
+- **Patterns** (`/insights`, Patterns): estimate gaps per transport mode, how often documents are missing,
+  the most common discrepancy type, errors near the end of the shift and the busiest weekday. No
+  conclusion is drawn from fewer than 5 tasks. Each pattern shows its evidence and a suggestion that can
+  be dismissed or added to the learning tracker.
+- **Per-client patterns** (late documents, frequent discrepancies, deadlines harder to meet per named
+  client) appear only after the user confirms in Settings that their organization permits it.
+- **Approved sending**: a saved draft can be sent by email (organization SMTP server) or posted to the team
+  channel (incoming webhook), only when the server is configured, the user confirmed the policy in
+  Settings, and the user reviews and approves that specific message. A draft is sent at most once
+  (database lock), a failed delivery leaves it as a draft, and the audit log keeps only the number of
+  recipients and their domains. Demo accounts can never send. Without configuration the UI shows
+  **Integration Required** and the copy-and-send-yourself flow stays available.
+- Personal WhatsApp is never automated. An official messaging API (e.g. WhatsApp Business) is not included.
+
 ### Safeguards that are enforced, not just displayed
 
 - A task cannot be completed while required documents are missing or issues are open.
@@ -229,7 +258,9 @@ QUESTION → LOCAL HYBRID SEARCH (keywords + meaning, on the server) → SOURCES
 - Notes and draft text go to an AI provider only with a separate explicit confirmation. Demo accounts never use AI.
 - AI answers must cite retrieved sources, and AI rewording must keep every number and reference.
 - The app never decides which document is correct.
-- Work is never reassigned automatically. Messages are never sent automatically.
+- Work is never reassigned automatically. Messages are never sent automatically: sending from the app
+  needs server configuration, a policy confirmation and the user's approval of each message.
+- Per-client patterns need an explicit policy confirmation.
 
 ---
 
@@ -260,16 +291,19 @@ To test the PWA install flow and the service worker, use a production build: `np
 ### Running the tests
 
 ```bash
-cd backend && pytest -q                 # 118 tests (+1 real-model test with WISPEX_EMBEDDING_MODEL_PATH): rules, priority, planner, auth, authorization, tasks, calendar
+cd backend && pytest -q                 # 134 tests (+1 real-model test with WISPEX_EMBEDDING_MODEL_PATH): rules, priority, planner, auth, authorization, tasks, calendar
                                         # (mocked Google), error workflow, reviews, learning, growth, documents,
                                         # knowledge search (keyword + meaning), assistant, drafts, escalation rules,
+                                        # forecast, patterns, approved sending (fake SMTP / mocked webhook),
                                         # Claude adapter (stub client), Supabase adapter (mocked HTTP)
 cd frontend && npm test                 # unit tests (countdown, timezone conversion)
 cd frontend && npm run lint && npm run typecheck
 
 # End-to-end (mobile + desktop viewports). Start the backend with AI_PROVIDER=fake and
 # DEMO_RATE_LIMIT_PER_MINUTE=200 (the suite opens more than 30 demo sessions a minute), and
-# `npm run build && npm start` first.
+# `npm run build && npm start` first. The email test runs only when the backend has an SMTP server,
+# e.g. a local sink: `python -m smtpd -n -c DebuggingServer 127.0.0.1:1025` (Python 3.11) with
+# EMAIL_PROVIDER=smtp SMTP_HOST=127.0.0.1 SMTP_PORT=1025 SMTP_STARTTLS=false EMAIL_FROM=wispex@example.com.
 cd frontend && npx playwright test
 ```
 
@@ -295,6 +329,8 @@ Nothing secret is ever sent to the browser.
 | `STORAGE_BACKEND` / `STORAGE_DIR` | backend | `local` (encrypted files) or `supabase` |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` | backend | Private Supabase Storage bucket (server side only) |
 | `SEMANTIC_SEARCH` / `EMBEDDING_MODEL` / `EMBEDDING_MODEL_PATH` / `EMBEDDING_CACHE_DIR` | backend | Local search by meaning (`local` or `off`). Model downloads on first use, or pre-download with `python -m app.ai.embeddings download` |
+| `EMAIL_PROVIDER` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_STARTTLS` / `EMAIL_FROM` | backend | `smtp` enables approved email sending through the organization's mail server |
+| `TEAM_WEBHOOK_URL` / `TEAM_CHANNEL_NAME` | backend | HTTPS incoming webhook of the team channel (Slack or Google Chat format) |
 | `DEMO_RATE_LIMIT_PER_MINUTE` | backend | Demo sessions per minute per address (default 30) |
 | `BACKEND_URL` | frontend (server only) | Where Next.js forwards `/api/*` |
 
@@ -350,6 +386,11 @@ the app refuses to start with development secrets.
 > policy explicitly permits this application (and any AI provider) to process it.
 
 ## Known limitations and next steps
+
+- The workload forecast only knows work that already exists and the user's own history. It cannot
+  know about urgent work that has not arrived yet, and it is only as good as the recorded times.
+- Email sending uses plain SMTP with STARTTLS. There is no inbox synchronisation, and delivery runs
+  inside the request (no queue).
 
 - Database tables are created at startup (`create_all`). New tables (like MVP 2's) are added
   automatically, but changed columns are not. Add Alembic migrations before the first production

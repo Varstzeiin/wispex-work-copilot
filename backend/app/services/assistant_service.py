@@ -544,8 +544,8 @@ def save_draft(
 
 
 def mark_sent(db: Session, user: User, d: CommunicationDraft) -> CommunicationDraft:
-    if d.status == "SENT_MANUALLY":
-        raise HTTPException(status.HTTP_409_CONFLICT, "This draft is already marked as sent.")
+    if d.status != "DRAFT":
+        raise HTTPException(status.HTTP_409_CONFLICT, "This draft was already sent.")
     d.status, d.sent_at = "SENT_MANUALLY", utcnow()
     audit_service.log(db, user.id, "MESSAGE_MARKED_SENT", "draft", d.id,
                       previous_state={"status": "DRAFT"}, new_state={"status": "SENT_MANUALLY"})

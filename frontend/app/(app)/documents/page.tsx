@@ -46,6 +46,8 @@ export default function DocumentsPage() {
   );
 }
 
+const ANALYSING = ["QUEUED", "PROCESSING"];
+
 function Shipments() {
   const { timezone } = useSettings();
   const { data, error, mutate } = useShipments();
@@ -133,16 +135,29 @@ function Shipments() {
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-3.5">
                 {body}
-                <p className="mt-2 text-xs text-slate-500">Open a document to link it to a shipment reference.</p>
-                <ul className="mt-1 space-y-0.5 text-xs">
-                  {g.documents.map((d) => (
-                    <li key={d.id}>
-                      <Link href={`/documents/${d.id}`} className="font-semibold text-brand-700">
-                        Open {d.original_filename}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                {/* Documents still being analysed get their shipment reference automatically: no action yet */}
+                {g.documents.some((d) => ANALYSING.includes(d.processing_status)) && (
+                  <p className="mt-2 text-xs text-sky-800">
+                    Being analysed. The shipment reference is read from the document, so these usually move to their shipment in a few
+                    seconds.
+                  </p>
+                )}
+                {g.documents.some((d) => !ANALYSING.includes(d.processing_status)) && (
+                  <>
+                    <p className="mt-2 text-xs text-slate-500">No shipment reference was found. Open a document to link it to a shipment.</p>
+                    <ul className="mt-1 space-y-0.5 text-xs">
+                      {g.documents
+                        .filter((d) => !ANALYSING.includes(d.processing_status))
+                        .map((d) => (
+                          <li key={d.id}>
+                            <Link href={`/documents/${d.id}`} className="font-semibold text-brand-700">
+                              Open {d.original_filename}
+                            </Link>
+                          </li>
+                        ))}
+                    </ul>
+                  </>
+                )}
               </div>
             )}
           </li>

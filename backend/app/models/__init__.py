@@ -6,6 +6,7 @@ from app.models.assistant import (
     KnowledgeNote,
 )
 from app.models.audit import AuditLog
+from app.models.automation import AutomationSettings
 from app.models.calendar import CalendarConnection, CalendarEvent
 from app.models.document import Discrepancy, Document, DocumentSettings, ExtractedField
 from app.models.performance import (
@@ -28,6 +29,7 @@ __all__ = [
     "KnowledgeEmbedding",
     "KnowledgeNote",
     "AuditLog",
+    "AutomationSettings",
     "CalendarConnection",
     "CalendarEvent",
     "Client",

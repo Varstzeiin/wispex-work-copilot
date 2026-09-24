@@ -84,9 +84,15 @@ def get_or_create_user_row(db: Session, model, user_id):
 
 def create_user_rows(db: Session, user_id) -> None:
     """Settings rows every account needs, created together with the account."""
-    from app.models import AssistantSettings, DocumentSettings
+    from app.models import AssistantSettings, AutomationSettings, DocumentSettings
 
-    db.add_all([DocumentSettings(user_id=user_id), AssistantSettings(user_id=user_id)])
+    db.add_all(
+        [
+            DocumentSettings(user_id=user_id),
+            AssistantSettings(user_id=user_id),
+            AutomationSettings(user_id=user_id, handled_suggestions=[]),
+        ]
+    )
     db.flush()
 
 

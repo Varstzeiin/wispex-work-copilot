@@ -12,6 +12,7 @@ from app.api import (
     assistant,
     audit,
     auth,
+    automation,
     calendar,
     demo,
     documents,
@@ -103,7 +104,7 @@ protected = [Depends(require_csrf_header)]
 routers = (
     auth.router, demo.router, tasks.router, planner.router, settings.router, calendar.router, audit.router,
     errors.router, reviews.router, learning.router, growth.router, documents.router, assistant.router,
-    knowledge.router,
+    knowledge.router, automation.router,
 )
 for router in routers:
     app.include_router(router, prefix="/api", dependencies=protected)

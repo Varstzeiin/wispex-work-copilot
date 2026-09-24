@@ -73,7 +73,7 @@ test("demo: draft a message, copy it and mark it as sent by yourself", async ({ 
   await page.getByRole("button", { name: "Generate draft" }).click();
   const body = page.getByLabel("Message", { exact: true });
   await expect(body).toHaveValue(/I have not yet received the Packing List\./);
-  await expect(page.getByText(/never sends messages/)).toBeVisible();
+  await expect(page.getByText(/Nothing is sent from here/)).toBeVisible();
   await snap(page, "32-draft");
 
   await page.getByRole("button", { name: "Save draft" }).click();
