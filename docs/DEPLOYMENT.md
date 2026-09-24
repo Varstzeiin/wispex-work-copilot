@@ -113,6 +113,26 @@ Tombol **Continue with Google** muncul otomatis di halaman login setelah itu.
 
 ---
 
+## Alternatif tanpa kartu: backend di Vercel
+
+Render meminta kartu pembayaran walau plan-nya Free. Kalau tidak ingin memasukkan kartu, backend bisa
+dijalankan sebagai **project Vercel kedua** dari repo yang sama:
+
+1. Vercel → **Add New → Project** → pilih repo `wispex-work-copilot`.
+2. **Project Name**: `wispex-backend`. **Root Directory**: `backend`. **Framework Preset**: FastAPI (atau Other).
+3. Isi Environment Variables seperti tabel di langkah 3, dengan perbedaan:
+   - `DATABASE_URL` pakai **Transaction pooler** (port `6543`), lebih cocok untuk serverless.
+   - `STORAGE_BACKEND=database` (dokumen disimpan terenkripsi di PostgreSQL, tanpa key Supabase tambahan).
+   - `SEMANTIC_SEARCH=off` (model pencarian makna terlalu besar untuk fungsi Vercel, pencarian tetap jalan
+     dengan kata kunci).
+4. Deploy, lalu cek `https://<project>.vercel.app/api/health/ready`.
+5. Di project frontend, isi `BACKEND_URL` dengan alamat itu lalu Redeploy.
+
+File `backend/index.py` adalah titik masuk yang dicari Vercel. `fastembed` ada di `requirements-semantic.txt`
+supaya tidak ikut terpasang di Vercel.
+
+---
+
 ## Hal yang perlu diketahui
 
 - **Render gratis tidur setelah 15 menit tanpa pengunjung.** Request pertama setelah itu butuh sekitar
