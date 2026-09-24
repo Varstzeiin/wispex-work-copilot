@@ -1,7 +1,8 @@
 "use client";
 
 import clsx from "clsx";
-import { Scale } from "lucide-react";
+import { Mail, Scale } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Badge, Button, Field, InlineError, Modal, inputClass } from "@/components/ui";
@@ -70,6 +71,14 @@ export function DiscrepancyCard({ d }: { d: DiscrepancyItem }) {
             <Button variant="secondary" disabled={!online} onClick={() => setAction("DISMISSED")}>
               Not a real issue
             </Button>
+            {d.task_id && (
+              <Link
+                href={`/assistant/drafts?kind=DISCREPANCY&task=${d.task_id}&discrepancy=${d.id}`}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50"
+              >
+                <Mail className="h-4 w-4" aria-hidden /> Draft a message
+              </Link>
+            )}
           </div>
         </>
       ) : (

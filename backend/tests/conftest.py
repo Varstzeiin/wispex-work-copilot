@@ -9,13 +9,15 @@ os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-123"
 os.environ["GOOGLE_CLIENT_ID"] = ""
 os.environ["GOOGLE_CLIENT_SECRET"] = ""
 os.environ["GOOGLE_REDIRECT_URI"] = ""
+# Tests never download or run the embedding model. Semantic tests inject a deterministic embedder.
+os.environ["SEMANTIC_SEARCH"] = "off"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
 from app.core.database import Base, engine  # noqa: E402
-from app.core.security import auth_rate_limiter, demo_rate_limiter  # noqa: E402
+from app.core.security import ai_rate_limiter, auth_rate_limiter, demo_rate_limiter  # noqa: E402
 from app.main import app  # noqa: E402
 
 CSRF = {"X-Requested-With": "wispex"}
@@ -34,10 +36,14 @@ def fresh_db(tmp_path):
 
     set_storage(LocalEncryptedStorage(str(tmp_path / "storage")))
     set_provider(None)  # document AI disabled unless a test enables it
+    from app.ai import embeddings
+
+    embeddings.reset()  # keyword search only unless a test injects an embedder
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     auth_rate_limiter.reset()
     demo_rate_limiter.reset()
+    ai_rate_limiter.reset()
     get_settings.cache_clear()
     yield
 

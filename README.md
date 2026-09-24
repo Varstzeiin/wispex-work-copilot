@@ -12,11 +12,11 @@ always shows *why*.
 
 ---
 
-## Status: MVP 1, MVP 2 and MVP 3 are complete
+## Status: MVP 1 to MVP 4 are complete
 
-The spec asks for feature-by-feature delivery. MVP 1 (Work Management), MVP 2 (Performance) and MVP 3
-(Document Intelligence) are implemented and tested. Later phases are visible in the app but clearly
-labelled **Coming Later**. There are no buttons that pretend to work.
+The spec asks for feature-by-feature delivery. MVP 1 (Work Management), MVP 2 (Performance), MVP 3
+(Document Intelligence) and MVP 4 (AI Copilot) are implemented and tested. Integrations that need
+configuration are labelled **Integration Required**. There are no buttons that pretend to work.
 
 | Area | Status |
 |---|---|
@@ -52,7 +52,13 @@ labelled **Coming Later**. There are no buttons that pretend to work.
 | **MVP 3:** Cross-document comparison and discrepancy workflow (linked to task issues) | ✅ Done |
 | **MVP 3:** Document versions (never "newest wins") with change view | ✅ Done |
 | **MVP 3:** Configurable final checklist required before completing a task | ✅ Done |
-| MVP 4 AI copilot (knowledge/RAG, “I'm not sure”, drafting) | ⏳ Coming Later |
+| **MVP 4:** Personal knowledge base with local search (notes, learning notes, answered questions, resolved errors) | ✅ Done |
+| **MVP 4:** Search by meaning (local embedding model, hybrid with keywords, keyword fallback) | ✅ Done |
+| **MVP 4:** Answers only from retrieved sources, with citations ("No reliable source found" otherwise) | ✅ Done, AI answer is **Integration Required** (sources are always shown) |
+| **MVP 4:** “I'm not sure” assistant: knowledge first, escalation recommendation, precise question draft | ✅ Done |
+| **MVP 4:** Clarifications and escalations linked to task issues, answers saved as knowledge | ✅ Done |
+| **MVP 4:** Communication drafts (6 types), copy and send yourself, optional AI rewording that keeps every fact | ✅ Done |
+| **MVP 4:** Error analysis and adaptive personal checklist (added only after confirmation) | ✅ Done |
 | MVP 5 Advanced automation | ⏳ Coming Later |
 
 ---
@@ -133,8 +139,8 @@ All weights and deadline thresholds are **personal settings, never presented as 
   escalations, average processing time, learning completed and feedback applied, for a local day or
   week. Today's review adds pending/critical work and tomorrow's priorities from the planner.
 - **Personal Reliability Indicators** show the evidence behind each value (e.g. "54 of 60 tasks with a
-  deadline were completed before it"). "Questions asked clearly" is honestly marked *not tracked yet*
-  until the MVP 4 question assistant exists. Escalating when needed is never counted against the user.
+  deadline were completed before it"). "Questions asked clearly" counts questions recorded through the
+  MVP 4 assistant that were linked to a task and included evidence. Escalating when needed is never counted against the user.
 - **30 / 60 / 90**: Understanding, Consistency, Independence and reliability. Default goals can be
   ticked with written evidence, and each phase shows the work actually recorded in that period.
 
@@ -170,6 +176,47 @@ UPLOAD → FILE VALIDATION → ENCRYPTED STORAGE → (if permitted) CLAUDE: CLAS
   until the user chooses one. Changes between versions are shown field by field.
 - **Fictional sample PDFs** can be downloaded on the upload page to try the whole flow.
 
+### MVP 4: AI copilot
+
+```text
+QUESTION → LOCAL HYBRID SEARCH (keywords + meaning, on the server) → SOURCES → (if permitted) CLAUDE ANSWERS FROM THOSE SOURCES
+→ CITATIONS CHECKED → ANSWER + SOURCES, or "No reliable source found. Please verify with the appropriate person."
+```
+
+- **Knowledge base** (`/knowledge`): training notes, SOP references, document explanations, terminology,
+  resolved questions, lessons, common mistakes, procedures and senior notes. A note is marked
+  *confirmed* only when the user checked it against an official source or with a senior.
+- **Search never leaves the server** (`app/services/knowledge_service.py`). It also covers learning notes,
+  answered questions and resolved errors, shown in the knowledge-first order: training, SOP, personal
+  notes, resolved cases, senior notes.
+- **Search by meaning** (`app/ai/embeddings.py`): a small embedding model (`all-MiniLM-L6-v2`, about
+  90 MB, ONNX via fastembed, no GPU) runs inside the API process, so no knowledge text is sent anywhere
+  and no AI permission is needed. A source counts if it covers at least half of the question's words
+  **or** is close enough in meaning (cosine similarity ≥ 0.30, and near the best match). Ranking is
+  meaning similarity plus a bonus for shared words. Vectors are cached per source and recomputed only
+  when the text changes. Results found only by meaning are labelled *Similar meaning*.
+  The model loads in the background. Until it is ready, or if it cannot load, search uses keywords only
+  and the page says so. Example: "Is the heavier figure with the boxes?" finds the note "Gross weight
+  includes packaging", while "What time is lunch?" still returns *No reliable source found*.
+- **AI answers** use `answer_knowledge_question` on the `AIProvider`. Claude gets only the retrieved
+  sources, must cite them, and must say when they are not enough. An answer that cites a source that was
+  not provided, or none at all, is discarded. Without permission the user sees the sources only.
+- **“I'm not sure”** (`/assistant/unsure`) collects task, field, issue, evidence and impact, searches
+  knowledge first and gives a conservative recommendation (`app/rules/escalation_rules.py`): *verify
+  first*, *ask a precise question*, or *consider escalating* only when uncertainty meets a close deadline
+  or a stated compliance or financial impact. The question follows
+  Context → Specific issue → Evidence → Deadline → Question and is editable.
+- **Clarifications**: recording a question or escalation adds an open issue to the task (so it cannot be
+  completed silently). Recording the answer closes it, adds it to the task notes and can save it to the
+  knowledge base.
+- **Communication drafts** (`/assistant/drafts`): clarification, missing documents, discrepancy,
+  escalation, correction and status update, built from the user's own records (no AI needed). The app
+  never sends anything: the user copies the text, sends it and can mark it as "sent by me".
+- **AI rewording** is optional and separate from document AI permission. After rewording, every number,
+  reference, date and time is compared with the original. If anything changed, the original is kept.
+- **Error analysis** summarises the last 30 days. Recurring patterns become checklist suggestions that
+  are added to the personal final checklist only after the user reviews (and can edit) them.
+
 ### Safeguards that are enforced, not just displayed
 
 - A task cannot be completed while required documents are missing or issues are open.
@@ -179,6 +226,8 @@ UPLOAD → FILE VALIDATION → ENCRYPTED STORAGE → (if permitted) CLAUDE: CLAS
 - Error reports follow the workflow in order and cannot be deleted.
 - Completing a task requires every item of the personal final checklist (editable in Settings).
 - Documents go to an AI provider only with server configuration **and** the user's explicit confirmation.
+- Notes and draft text go to an AI provider only with a separate explicit confirmation. Demo accounts never use AI.
+- AI answers must cite retrieved sources, and AI rewording must keep every number and reference.
 - The app never decides which document is correct.
 - Work is never reassigned automatically. Messages are never sent automatically.
 
@@ -211,13 +260,15 @@ To test the PWA install flow and the service worker, use a production build: `np
 ### Running the tests
 
 ```bash
-cd backend && pytest -q                 # 85 tests: rules, priority, planner, auth, authorization, tasks, calendar
+cd backend && pytest -q                 # 118 tests (+1 real-model test with WISPEX_EMBEDDING_MODEL_PATH): rules, priority, planner, auth, authorization, tasks, calendar
                                         # (mocked Google), error workflow, reviews, learning, growth, documents,
+                                        # knowledge search (keyword + meaning), assistant, drafts, escalation rules,
                                         # Claude adapter (stub client), Supabase adapter (mocked HTTP)
 cd frontend && npm test                 # unit tests (countdown, timezone conversion)
 cd frontend && npm run lint && npm run typecheck
 
 # End-to-end (mobile + desktop viewports). Start the backend with AI_PROVIDER=fake and
+# DEMO_RATE_LIMIT_PER_MINUTE=200 (the suite opens more than 30 demo sessions a minute), and
 # `npm run build && npm start` first.
 cd frontend && npx playwright test
 ```
@@ -240,9 +291,11 @@ Nothing secret is ever sent to the browser.
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | backend | Enables Google Calendar sync |
 | `FRONTEND_URL` | backend | Where the OAuth callback redirects back to |
 | `DEMO_MODE_ENABLED` | backend | Set `false` in production if demo accounts are not wanted |
-| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | `anthropic` enables Claude document reading. Key falls back to `ANTHROPIC_API_KEY` |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | `anthropic` enables Claude document reading and assistant answers. Key falls back to `ANTHROPIC_API_KEY` |
 | `STORAGE_BACKEND` / `STORAGE_DIR` | backend | `local` (encrypted files) or `supabase` |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` | backend | Private Supabase Storage bucket (server side only) |
+| `SEMANTIC_SEARCH` / `EMBEDDING_MODEL` / `EMBEDDING_MODEL_PATH` / `EMBEDDING_CACHE_DIR` | backend | Local search by meaning (`local` or `off`). Model downloads on first use, or pre-download with `python -m app.ai.embeddings download` |
+| `DEMO_RATE_LIMIT_PER_MINUTE` | backend | Demo sessions per minute per address (default 30) |
 | `BACKEND_URL` | frontend (server only) | Where Next.js forwards `/api/*` |
 
 The default timezone is `Asia/Jakarta`. Each user can change timezone and shift in Settings.
@@ -307,5 +360,11 @@ the app refuses to start with development secrets.
   server; for several servers or heavy volume, move it to a queue worker (e.g. RQ + Redis).
 - Malware scanning of uploads is not included. Files are never executed or rendered by the server and are
   always downloaded as attachments, but add a scanner before accepting files from untrusted sources.
+- Search by meaning uses a small English model, chosen because it is light and could be tested here.
+  It handles paraphrases but not every case (for example "who receives the shipment" does not find a note
+  about the consignee). For Indonesian notes, set `EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+  (about 220 MB). Its similarity threshold (0.40) is an estimate: check it with your own notes first.
+- The embedding model adds about 180 MB of memory to the API process (measured: 85 MB to 264 MB). On very small servers set
+  `SEMANTIC_SEARCH=off` to keep keyword search only.
 - The Claude integration is covered by tests with a stub client. It has not been run against the live
   API in this repository's CI, because that needs a real key and sends data to a provider.

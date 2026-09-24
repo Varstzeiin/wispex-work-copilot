@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.database import get_db
+from app.core.database import create_user_rows, get_db
 from app.core.security import (
     AUTH_COOKIE,
     auth_rate_limiter,
@@ -51,6 +51,7 @@ def register(data: RegisterIn, request: Request, response: Response, db: Session
     db.add(user)
     db.flush()
     get_user_settings(db, user)
+    create_user_rows(db, user.id)
     audit_service.log(db, user.id, "USER_REGISTERED", "user", user.id)
     db.commit()
     set_session_cookie(response, user)

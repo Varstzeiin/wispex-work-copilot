@@ -121,7 +121,9 @@ class RateLimiter:
 
 
 auth_rate_limiter = RateLimiter(max_calls=10, window_seconds=60)
-demo_rate_limiter = RateLimiter(max_calls=30, window_seconds=60)
+demo_rate_limiter = RateLimiter(max_calls=get_settings().demo_rate_limit_per_minute, window_seconds=60)
+# AI-backed assistant calls, per user
+ai_rate_limiter = RateLimiter(max_calls=20, window_seconds=60)
 
 
 # ---------- Encryption for OAuth tokens ----------

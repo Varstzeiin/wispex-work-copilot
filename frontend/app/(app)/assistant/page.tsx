@@ -1,26 +1,47 @@
+"use client";
+
+import { Mail, ShieldQuestion } from "lucide-react";
+import Link from "next/link";
+
+import { AskPanel } from "@/components/assistant/AskPanel";
+import { ClarificationList } from "@/components/assistant/ClarificationList";
+import { InsightsCard } from "@/components/assistant/InsightsCard";
 import { NextActionPanel } from "@/components/assistant/NextActionPanel";
-import { ComingLater } from "@/components/ui/ComingLater";
+import { PageHeader, SectionTitle } from "@/components/ui";
 
 export default function AssistantPage() {
   return (
-    <ComingLater
-      title="Assistant"
-      phase="MVP 4 · AI copilot"
-      summary="“What should I work on now?” is active and runs on your own priority rules (no AI provider involved). The AI-assisted features below come in a later phase."
-      planned={[
-        "“I'm not sure” assistant: collects context, field, issue, deadline and documents",
-        "Question drafting in the format Context → Specific issue → Evidence → Deadline → Question",
-        "Knowledge search over training notes, SOP references and resolved cases (with sources)",
-        "Communication drafts: clarification, missing documents, discrepancy, escalation, correction, status update",
-        "Error analysis and adaptive personal checklist suggestions (always with your confirmation)",
-      ]}
-      principles={[
-        "Answers only from trusted sources you stored. If none exist: “No reliable source found”",
-        "Never invents an SOP or decides customs, compliance or financial questions",
-        "Drafts only. You review, approve and send every message yourself",
-      ]}
-    >
+    <div className="space-y-4">
+      <PageHeader title="Assistant" subtitle="Suggestions and drafts only. You verify, decide and send." />
       <NextActionPanel />
-    </ComingLater>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Link
+          href="/assistant/unsure"
+          className="flex min-h-20 flex-col justify-center rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-950 hover:bg-amber-100"
+        >
+          <ShieldQuestion className="h-5 w-5" aria-hidden />
+          <span className="mt-1 font-semibold">I&apos;m not sure</span>
+          <span className="text-xs text-amber-800">Check sources, then ask precisely</span>
+        </Link>
+        <Link
+          href="/assistant/drafts"
+          className="flex min-h-20 flex-col justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-900 hover:bg-slate-50"
+        >
+          <Mail className="h-5 w-5 text-brand-600" aria-hidden />
+          <span className="mt-1 font-semibold">Draft a message</span>
+          <span className="text-xs text-slate-500">Clarification, missing docs, status…</span>
+        </Link>
+      </div>
+
+      <AskPanel />
+
+      <section>
+        <SectionTitle>Open questions</SectionTitle>
+        <ClarificationList />
+      </section>
+
+      <InsightsCard />
+    </div>
   );
 }

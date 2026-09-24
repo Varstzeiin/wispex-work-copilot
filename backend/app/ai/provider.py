@@ -77,11 +77,47 @@ def validate_output(raw: object, provider: str, model: str) -> ExtractionResult:
     )
 
 
+class AnswerOut(BaseModel):
+    sufficient: bool
+    answer: str = Field(max_length=2000)
+    used_source_ids: list[str] = Field(max_length=10)
+
+
+@dataclass
+class KnowledgeAnswer:
+    """A validated answer. `sufficient=False` means: no reliable answer in the sources."""
+
+    sufficient: bool
+    answer: str = ""
+    used_source_ids: list[str] = field(default_factory=list)
+    model: str = ""
+
+
+def validate_answer(raw: object, source_ids: list[str], model: str) -> KnowledgeAnswer:
+    """An answer counts only if it is well-formed and cites sources that were actually provided."""
+    try:
+        parsed = AnswerOut.model_validate(raw)
+    except ValidationError:
+        return KnowledgeAnswer(sufficient=False, model=model)
+    used = [i for i in parsed.used_source_ids if i in source_ids]
+    if not parsed.sufficient or not parsed.answer.strip() or not used or len(used) != len(parsed.used_source_ids):
+        return KnowledgeAnswer(sufficient=False, model=model)
+    return KnowledgeAnswer(sufficient=True, answer=parsed.answer.strip(), used_source_ids=used, model=model)
+
+
 class AIProvider(Protocol):
     name: str
 
     def extract_document(self, content: bytes, mime_type: str) -> ExtractionResult:
         """Classify the document and extract structured fields with confidence scores."""
+        ...
+
+    def answer_knowledge_question(self, question: str, sources: list[dict]) -> KnowledgeAnswer:
+        """Answer only from the given sources ({"id", "title", "text"})."""
+        ...
+
+    def rewrite_message(self, text: str) -> str:
+        """Improve wording without changing any fact. The caller verifies the facts are kept."""
         ...
 
 

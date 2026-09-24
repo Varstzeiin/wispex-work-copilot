@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.ai.prompts.extraction import FIELD_NAMES
 from app.ai.provider import ProviderError, get_provider
 from app.core.config import get_settings
-from app.core.database import SessionLocal, utcnow
+from app.core.database import SessionLocal, get_or_create_user_row, utcnow
 from app.models import Discrepancy, Document, DocumentSettings, ExtractedField, Shipment, Task, User
 from app.rules.discrepancy_rules import (
     ACTION,
@@ -70,12 +70,7 @@ MAX_FILES_PER_UPLOAD = 10
 
 
 def get_doc_settings(db: Session, user: User) -> DocumentSettings:
-    s = db.get(DocumentSettings, user.id)
-    if s is None:
-        s = DocumentSettings(user_id=user.id)
-        db.add(s)
-        db.flush()
-    return s
+    return get_or_create_user_row(db, DocumentSettings, user.id)
 
 
 def ai_allowed(db: Session, user: User) -> bool:

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
 
+import { AssistantSettingsCard } from "@/components/assistant/AssistantSettingsCard";
 import { DocumentSettingsCard } from "@/components/document/DocumentSettingsCard";
 import { Button, Card, ErrorState, Field, InlineError, Modal, PageHeader, SectionTitle, Spinner, inputClass } from "@/components/ui";
 import { useRefreshTaskData } from "@/features/task-management/hooks";
@@ -236,6 +237,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
       </Card>
 
       <DocumentSettingsCard />
+      <AssistantSettingsCard />
 
       <Card>
         <SectionTitle>Data and privacy</SectionTitle>

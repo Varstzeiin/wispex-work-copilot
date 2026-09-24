@@ -44,7 +44,7 @@ export const SECONDARY_NAV: NavItem[] = [
   { href: "/errors", label: "Errors", icon: AlertOctagon },
   { href: "/learning", label: "Learning", icon: GraduationCap },
   { href: "/growth", label: "Growth", icon: Sprout },
-  { href: "/knowledge", label: "Knowledge", icon: BookOpen, later: true },
+  { href: "/knowledge", label: "Knowledge", icon: BookOpen },
   { href: "/activity", label: "Activity log", icon: Activity },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

@@ -71,11 +71,16 @@ export default function ErrorDetailPage() {
                 <p className="text-sm text-slate-800">{e.impact}</p>
               </div>
             )}
-            {e.task_id && (
-              <Link href={`/tasks/${e.task_id}`} className="mt-3 inline-block text-sm font-semibold text-brand-700">
-                Open linked task
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+              {e.task_id && (
+                <Link href={`/tasks/${e.task_id}`} className="text-sm font-semibold text-brand-700">
+                  Open linked task
+                </Link>
+              )}
+              <Link href={`/assistant/drafts?kind=CORRECTION&error=${e.id}`} className="text-sm font-semibold text-brand-700">
+                Draft a correction notification
               </Link>
-            )}
+            </div>
           </Card>
           <Record report={e} timezone={timezone} />
         </div>
