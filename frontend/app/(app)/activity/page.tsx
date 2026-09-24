@@ -65,6 +65,9 @@ const ACTION_LABEL: Record<string, string> = {
   MESSAGE_REWRITTEN: "Draft reworded with AI",
   DRAFT_DELETED: "Draft deleted",
   AI_ASSIST_PERMISSION_CHANGED: "AI writing help changed",
+  AUTOMATION_PERMISSION_CHANGED: "Insights or sending permission changed",
+  EMAIL_SENT: "Email sent (approved by you)",
+  TEAM_MESSAGE_POSTED: "Posted to team channel (approved by you)",
 };
 
 function describe(item: AuditItem): string | null {

@@ -687,7 +687,7 @@ export interface CommunicationDraft {
   recipient: string;
   subject: string;
   body: string;
-  status: "DRAFT" | "SENT_MANUALLY";
+  status: "DRAFT" | "SENDING" | "SENT_MANUALLY" | "SENT_EMAIL" | "POSTED_TEAM";
   sent_at: string | null;
   created_at: string;
   updated_at: string;
@@ -708,4 +708,66 @@ export interface AssistantInsights {
   patterns: { kind: string; key: string; count: number; message: string }[];
   suggestions: { key: string; count: number; message: string; item: string }[];
   note: string;
+}
+
+// ---------- MVP 5: automation ----------
+
+export interface AutomationStatus {
+  is_demo: boolean;
+  client_patterns_allowed: boolean;
+  email_configured: boolean;
+  email_allowed: boolean;
+  team_configured: boolean;
+  team_channel_name: string | null;
+  team_allowed: boolean;
+}
+
+export interface ForecastDay {
+  date: string;
+  label: string;
+  known_minutes: number;
+  known_tasks: number;
+  typical_minutes: number;
+  expected_minutes: number;
+  capacity_minutes: number;
+  status: "OK" | "TIGHT" | "OVER";
+  explanation: string;
+  task_refs: { id: string; label: string }[];
+}
+
+export interface Forecast {
+  days: ForecastDay[];
+  shift_minutes: number;
+  calibration: { ratio: number; tasks: number; by_mode: Record<string, { ratio: number; tasks: number }> };
+  unscheduled_tasks: number;
+  history_tasks: number;
+  advice: string[];
+  note: string;
+}
+
+export interface Finding {
+  key: string;
+  kind: string;
+  scope: string;
+  title: string;
+  evidence: string;
+  suggestion: string;
+  handled: boolean;
+}
+
+export interface Patterns {
+  days: number;
+  tasks_analysed: number;
+  client_patterns_allowed: boolean;
+  findings: Finding[];
+  note: string;
+}
+
+export interface AnalyticsData {
+  weeks: number;
+  weekly: { week_start: string; completed: number; on_time_pct: number | null; avg_minutes: number | null }[];
+  by_mode: { mode: string; tasks: number; avg_estimate: number; avg_actual: number }[];
+  issues: { type: string; count: number }[];
+  weekday_minutes: { day: string; minutes: number }[];
+  total_completed: number;
 }

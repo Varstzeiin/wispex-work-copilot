@@ -202,3 +202,19 @@ export const RECOMMENDATION_STYLE: Record<string, { label: string; style: string
   ASK: { label: "Ask a precise question", style: "border-amber-200 bg-amber-50 text-amber-900" },
   ESCALATE: { label: "Consider escalating", style: "border-red-200 bg-red-50 text-red-900" },
 };
+
+// ---------- MVP 5 ----------
+
+export const FORECAST_STATUS: Record<string, { label: string; icon: string; style: string; bar: string }> = {
+  OK: { label: "Fits your shift", icon: "✓", style: "text-emerald-800", bar: "bg-brand-500" },
+  TIGHT: { label: "Tight", icon: "!", style: "text-amber-800", bar: "bg-amber-500" },
+  OVER: { label: "Over capacity", icon: "▲", style: "text-red-700", bar: "bg-red-500" },
+};
+
+export const DRAFT_STATUS: Record<string, { label: string; style: string }> = {
+  DRAFT: { label: "Draft", style: "bg-slate-100 text-slate-700" },
+  SENDING: { label: "Sending…", style: "bg-sky-100 text-sky-800" },
+  SENT_MANUALLY: { label: "Sent by you", style: "bg-emerald-100 text-emerald-800" },
+  SENT_EMAIL: { label: "Emailed", style: "bg-emerald-100 text-emerald-800" },
+  POSTED_TEAM: { label: "Posted to team", style: "bg-emerald-100 text-emerald-800" },
+};
