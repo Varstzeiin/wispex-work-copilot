@@ -100,9 +100,10 @@ test("real account with (fake) AI: upload, background analysis, cross-document c
   await snap(page, "23-upload-result");
 
   await page.goto("/documents");
-  const group = page.getByRole("link", { name: /SHP-DEMO-7/ });
-  await expect(group).toBeVisible({ timeout: 15_000 });
-  await expect(group.getByText("3 / 3 documents")).toBeVisible();
+  // The shipment card itself (by its link target): while files are still being analysed, their names
+  // can also appear elsewhere on the page. The list refreshes on its own until analysis is done.
+  const group = page.locator('a[href="/documents/shipment/SHP-DEMO-7"]');
+  await expect(group).toContainText("3 / 3 documents", { timeout: 15_000 });
   await group.click();
   await expect(page.getByText("Potential mismatch: Quantity")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Potential mismatch: Net weight")).toBeVisible();
@@ -113,4 +114,26 @@ test("real account with (fake) AI: upload, background analysis, cross-document c
   await page.locator("#file-input").setInputFiles(files[0]);
   await page.getByRole("button", { name: "Upload 1 file" }).click();
   await expect(page.getByText(/This exact file was already uploaded/)).toBeVisible();
+});
+
+test("documents still being analysed are not shown as needing a manual link", async ({ page }) => {
+  await startDemo(page);
+  // Pretend two uploads have no shipment reference yet: one still being analysed, one finished without one
+  await page.route("**/api/documents/shipments", async (route) => {
+    const res = await route.fetch();
+    const groups = await res.json();
+    const doc = (id: string, name: string, status: string) => ({
+      id, original_filename: name, document_type: "UNKNOWN", processing_status: status, is_active_version: true,
+    });
+    groups.unshift({
+      shipment_reference: "", task_id: null, document_count: 2, completeness: null, open_discrepancies: 0,
+      fields_to_review: 0, processing: 1, version_choice_needed: false, last_upload: new Date().toISOString(),
+      documents: [doc("a", "analysing.pdf", "PROCESSING"), doc("b", "no-reference.pdf", "EXTRACTED")],
+    });
+    await route.fulfill({ response: res, json: groups });
+  });
+  await page.goto("/documents");
+  await expect(page.getByText(/Being analysed\. The shipment reference is read from the document/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open no-reference.pdf" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open analysing.pdf" })).toHaveCount(0);
 });
