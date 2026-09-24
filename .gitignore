@@ -22,3 +22,6 @@ playwright-report/
 
 # OS
 .DS_Store
+
+# Uploaded documents (local storage backend)
+backend/storage/

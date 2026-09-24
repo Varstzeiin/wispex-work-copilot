@@ -1,5 +1,6 @@
 from app.models.audit import AuditLog
 from app.models.calendar import CalendarConnection, CalendarEvent
+from app.models.document import Discrepancy, Document, DocumentSettings, ExtractedField
 from app.models.performance import (
     DevelopmentGoal,
     DevelopmentPlan,
@@ -19,8 +20,12 @@ __all__ = [
     "CalendarEvent",
     "Client",
     "DevelopmentGoal",
+    "Discrepancy",
+    "Document",
+    "DocumentSettings",
     "DevelopmentPlan",
     "ErrorReport",
+    "ExtractedField",
     "Feedback",
     "LearningItem",
     "ShiftReview",

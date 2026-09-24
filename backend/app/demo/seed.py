@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
 from app.core.security import hash_password
+from app.demo.document_seed import seed_documents
 from app.demo.performance_seed import seed_performance
 from app.models import Client, Shipment, Task, User, UserSettings
 from app.services import audit_service
@@ -35,13 +36,9 @@ def demo_tasks(now: datetime) -> list[dict]:
              deadline=m(80), eta=m(-120), est=30, docs=SEA_DOCS, have=[INV, BL], age_h=5,
              action="Request Packing List from shipper"),
         dict(ref="SHP-003", client="Client A", mode="SEA", title="Import declaration data prep",
-             deadline=m(150), eta=m(240), est=35, docs=SEA_DOCS, have=SEA_DOCS, age_h=6,
-             issues=[_issue("QUANTITY_MISMATCH",
-                            "Invoice shows 1,500 units while Packing List shows 1,550 units")]),
+             deadline=m(150), eta=m(240), est=35, docs=SEA_DOCS, have=SEA_DOCS, age_h=6),
         dict(ref="SHP-004", client="Client C", mode="AIR", title="Air import data prep",
-             deadline=m(185), eta=m(90), est=20, docs=AIR_DOCS, have=AIR_DOCS, age_h=2,
-             issues=[_issue("WEIGHT_MISMATCH",
-                            "Invoice net weight 850 KG vs Packing List net weight 890 KG (40 KG difference)")]),
+             deadline=m(185), eta=m(90), est=20, docs=AIR_DOCS, have=AIR_DOCS, age_h=2),
         dict(ref="SHP-005", client="Client B", mode="SEA", title="Import declaration data prep",
              deadline=m(300), eta=m(600), est=25, docs=SEA_DOCS, have=SEA_DOCS, age_h=4,
              issues=[_issue("LOW_CONFIDENCE",
@@ -160,6 +157,8 @@ def create_demo_user(db: Session) -> User:
         refresh_priority(task, settings, now)
 
     seed_performance(db, user, settings, now)
+    # Quantity (SHP-003) and weight (SHP-004) mismatches come from the document check itself
+    seed_documents(db, user, now)
     audit_service.log(db, user.id, "DEMO_SESSION_STARTED", "user", user.id, metadata={"tasks": 15})
     db.commit()
     return user

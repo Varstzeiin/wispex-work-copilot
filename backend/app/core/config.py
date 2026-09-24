@@ -34,15 +34,29 @@ class Settings(BaseSettings):
     # Demo mode can be switched off in production
     demo_mode_enabled: bool = True
 
-    # Placeholders for later MVP phases. Not used in MVP 1.
+    # Document AI (MVP 3). "anthropic" | "fake" (development/tests only) | "" (disabled)
     ai_provider: str = ""
+    # Read by the Anthropic SDK. Leave empty to use ANTHROPIC_API_KEY from the environment.
     ai_api_key: str = ""
+    ai_model: str = "claude-opus-5"
+    ai_timeout_seconds: float = 120.0
+
+    # File storage. "local" keeps encrypted files on disk; "supabase" uses Supabase Storage.
+    storage_backend: str = "local"
+    storage_dir: str = "./storage"
+    max_upload_mb: int = 15
+    max_pdf_pages: int = 50
     supabase_url: str = ""
     supabase_service_role_key: str = ""
+    supabase_bucket: str = "documents"
 
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def ai_configured(self) -> bool:
+        return self.ai_provider in ("anthropic", "fake")
 
     @property
     def google_calendar_configured(self) -> bool:
@@ -57,4 +71,6 @@ def get_settings() -> Settings:
             raise RuntimeError("JWT_SECRET must be set in production")
         if not settings.cookie_secure:
             raise RuntimeError("COOKIE_SECURE must be true in production")
+        if settings.ai_provider == "fake":
+            raise RuntimeError("AI_PROVIDER=fake is for development and tests only")
     return settings

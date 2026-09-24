@@ -96,6 +96,8 @@ class StatusChange(BaseModel):
     note: str = Field(default="", max_length=500)
     # Completing a task requires an explicit human confirmation
     confirm_verified: bool = False
+    # Items of the personal final checklist that the user ticked
+    checklist_confirmed: list[str] = Field(default_factory=list, max_length=30)
 
 
 class DeadlineOut(BaseModel):

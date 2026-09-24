@@ -8,3 +8,6 @@ pyjwt==2.10.1
 cryptography==46.0.3
 httpx==0.28.1
 psycopg[binary]==3.2.13
+python-multipart==0.0.32
+anthropic==1.8.0
+pypdf==6.19.0
