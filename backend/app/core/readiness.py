@@ -25,7 +25,8 @@ def config_warnings(settings: Settings) -> list[str]:
     if settings.storage_backend == "local":
         warnings.append(
             "Uploaded documents are stored on this server's disk and are lost on restart on most hosts. "
-            "Set STORAGE_BACKEND=supabase with a private Supabase Storage bucket."
+            "Set STORAGE_BACKEND=database (encrypted, in PostgreSQL) or STORAGE_BACKEND=supabase "
+            "with a private Supabase Storage bucket."
         )
     return warnings
 

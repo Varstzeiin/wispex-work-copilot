@@ -45,7 +45,8 @@ class Settings(BaseSettings):
     ai_model: str = "claude-opus-5"
     ai_timeout_seconds: float = 120.0
 
-    # File storage. "local" keeps encrypted files on disk; "supabase" uses Supabase Storage.
+    # File storage. "local": encrypted files on disk. "database": encrypted, in the database.
+    # "supabase": a private Supabase Storage bucket.
     storage_backend: str = "local"
     storage_dir: str = "./storage"
     max_upload_mb: int = 15

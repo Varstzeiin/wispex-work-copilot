@@ -71,3 +71,18 @@ def test_production_refuses_to_start_without_a_valid_encryption_key(monkeypatch)
         get_settings()
     monkeypatch.setenv("APP_ENV", "test")
     get_settings.cache_clear()
+
+
+def test_database_storage_keeps_files_encrypted_in_the_database():
+    from app.core.database import SessionLocal
+    from app.models import StoredFile
+    from app.storage.backends import DatabaseEncryptedStorage, StorageError
+
+    store = DatabaseEncryptedStorage()
+    store.save("u1/d1", b"%PDF-1.4 invoice", "application/pdf")
+    with SessionLocal() as db:
+        assert b"invoice" not in db.get(StoredFile, "u1/d1").data  # encrypted at rest
+    assert store.load("u1/d1") == b"%PDF-1.4 invoice"
+    store.delete("u1/d1")
+    with pytest.raises(StorageError):
+        store.load("u1/d1")

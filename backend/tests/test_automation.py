@@ -75,7 +75,9 @@ def test_forecast_places_known_work_on_the_right_day(client):
     assert {r["label"] for r in target["task_refs"]} == {"SHP-F1", "SHP-F2"}
     assert f["days"][0]["label"] == "Today" and any(r["label"] == "SHP-OLD" for r in f["days"][0]["task_refs"])
     assert f["unscheduled_tasks"] == 1
-    assert "never reassigned" not in " ".join(f["advice"])  # no overload, so no overload advice
+    # No overload on the coming days. Today is skipped: after the shift ends, the overdue task
+    # correctly makes today "over capacity", so the result depends on the time the test runs.
+    assert all(d["status"] != "OVER" for d in f["days"][1:])
 
 
 def test_forecast_flags_overload_and_never_reassigns(client):

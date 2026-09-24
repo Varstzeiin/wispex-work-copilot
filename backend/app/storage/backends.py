@@ -98,6 +98,45 @@ class SupabaseStorage:
             raise StorageError("The stored file could not be deleted.")
 
 
+class DatabaseEncryptedStorage:
+    """Files in the application database, encrypted with the server's Fernet key.
+
+    Survives restarts on hosts with a temporary disk and needs no extra service or key.
+    Uses its own short session, so a stored file does not depend on the caller's transaction.
+    """
+
+    name = "database"
+
+    def save(self, key: str, data: bytes, content_type: str) -> None:
+        from app.core.database import SessionLocal
+        from app.models import StoredFile
+
+        try:
+            with SessionLocal() as db:
+                db.merge(StoredFile(key=key, content_type=content_type, data=encrypt_bytes(data)))
+                db.commit()
+        except Exception as exc:  # never include the content in the error
+            raise StorageError("The file could not be stored. Please try again.") from exc
+
+    def load(self, key: str) -> bytes:
+        from app.core.database import SessionLocal
+        from app.models import StoredFile
+
+        with SessionLocal() as db:
+            row = db.get(StoredFile, key)
+            if row is None:
+                raise StorageError("The stored file could not be found.")
+            return decrypt_bytes(row.data)
+
+    def delete(self, key: str) -> None:
+        from app.core.database import SessionLocal
+        from app.models import StoredFile
+
+        with SessionLocal() as db:
+            db.query(StoredFile).filter(StoredFile.key == key).delete()
+            db.commit()
+
+
 _backend: Optional[StorageBackend] = None
 
 
@@ -109,6 +148,8 @@ def get_storage() -> StorageBackend:
             if not (s.supabase_url and s.supabase_service_role_key):
                 raise StorageError("Supabase Storage is selected but not configured.")
             _backend = SupabaseStorage(s.supabase_url, s.supabase_service_role_key, s.supabase_bucket)
+        elif s.storage_backend == "database":
+            _backend = DatabaseEncryptedStorage()
         else:
             _backend = LocalEncryptedStorage(s.storage_dir)
     return _backend
