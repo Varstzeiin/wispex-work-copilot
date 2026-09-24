@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from cryptography.fernet import Fernet
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -102,9 +103,16 @@ def get_settings() -> Settings:
     settings = Settings()
     if settings.is_production:
         if settings.jwt_secret.startswith("dev-only"):
-            raise RuntimeError("JWT_SECRET must be set in production")
+            raise RuntimeError("JWT_SECRET must be set in production (python -m app.scripts.generate_secrets)")
         if not settings.cookie_secure:
             raise RuntimeError("COOKIE_SECURE must be true in production")
         if settings.ai_provider == "fake":
             raise RuntimeError("AI_PROVIDER=fake is for development and tests only")
+        # Checked at start-up, not at the first upload or Google connection
+        try:
+            Fernet(settings.encryption_key.encode())
+        except ValueError as exc:
+            raise RuntimeError(
+                "ENCRYPTION_KEY must be set in production to a Fernet key (python -m app.scripts.generate_secrets)"
+            ) from exc
     return settings

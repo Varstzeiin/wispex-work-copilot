@@ -359,6 +359,11 @@ Without Google, every reminder can be downloaded as an `.ics` file (with the sam
 
 Use separate development, staging and production environments. Never develop against production data.
 
+**Step-by-step guide (Indonesian): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**, with a Render Blueprint in
+[`render.yaml`](render.yaml). The backend has been tested on PostgreSQL 16 (full suite, also in CI) and
+keeps accounts, tasks and history across restarts. `/api/health/ready` checks the database and lists
+settings that would lose data.
+
 **Vercel checklist.** Vercel runs only the Next.js frontend. The FastAPI backend must be deployed
 separately, and the frontend forwards every `/api/*` request to it:
 
@@ -415,9 +420,8 @@ the app refuses to start with development secrets.
 - Email sending uses plain SMTP with STARTTLS. There is no inbox synchronisation, and delivery runs
   inside the request (no queue).
 
-- Database tables are created at startup (`create_all`). New tables (like MVP 2's) are added
-  automatically, but changed columns are not. Add Alembic migrations before the first production
-  schema change.
+- Database tables are created at startup (`create_all`). New tables are added automatically, but
+  changed columns are not. Add Alembic migrations before the first change to an existing table.
 - The rate limiter is in-memory (single instance). Use Redis when running several instances.
 - Document processing runs in FastAPI background tasks inside the API process. That is fine for one
   server; for several servers or heavy volume, move it to a queue worker (e.g. RQ + Redis).

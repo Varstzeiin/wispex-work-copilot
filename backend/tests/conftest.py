@@ -3,7 +3,8 @@ import tempfile
 
 # Configure a throwaway database BEFORE the app modules are imported
 _tmpdir = tempfile.mkdtemp(prefix="wispex-test-")
-os.environ["DATABASE_URL"] = f"sqlite:///{_tmpdir}/test.db"
+# TEST_DATABASE_URL runs the same suite against PostgreSQL (the production database)
+os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{_tmpdir}/test.db"
 os.environ["APP_ENV"] = "test"
 os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-123"
 os.environ["GOOGLE_CLIENT_ID"] = ""
