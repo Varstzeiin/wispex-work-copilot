@@ -69,7 +69,7 @@ export function DocumentChecklist({ task, disabled }: { task: Task; disabled?: b
         </ul>
       )}
       <p className="mt-2 text-xs text-slate-500">
-        Tap to mark a document as received. Document upload and AI checks arrive in MVP 3.
+        Tap to mark a document as received. Uploaded documents are marked automatically once their type is known.
       </p>
       <div className="mt-2">
         <InlineError message={error} />

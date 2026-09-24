@@ -20,11 +20,20 @@ from app.main import app  # noqa: E402
 
 CSRF = {"X-Requested-With": "wispex"}
 
+# Completing a task requires every item of the (default) personal final checklist
+from app.models.document import DEFAULT_FINAL_CHECKLIST  # noqa: E402
+
+COMPLETE = {"status": "COMPLETED", "confirm_verified": True, "checklist_confirmed": list(DEFAULT_FINAL_CHECKLIST)}
+
 
 @pytest.fixture(autouse=True)
-def fresh_db():
+def fresh_db(tmp_path):
     from app import models  # noqa: F401
+    from app.ai.provider import set_provider
+    from app.storage.backends import LocalEncryptedStorage, set_storage
 
+    set_storage(LocalEncryptedStorage(str(tmp_path / "storage")))
+    set_provider(None)  # document AI disabled unless a test enables it
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     auth_rate_limiter.reset()

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from tests.conftest import make_client, register
+from tests.conftest import COMPLETE, make_client, register
 
 DOCS = ["Commercial Invoice", "Packing List"]
 
@@ -107,14 +107,18 @@ def test_list_search_filter_and_pagination(client):
 def test_completion_requires_resolved_issues_and_confirmation(client):
     task = create(client, issues=[{"type": "QUANTITY_MISMATCH", "description": "1500 vs 1550"}])
     url = f"/api/tasks/{task['id']}/status"
-    r = client.post(url, json={"status": "COMPLETED", "confirm_verified": True})
+    r = client.post(url, json=COMPLETE)
     assert r.status_code == 409 and "open issue" in r.json()["message"]
 
     issues = task["issues"]
     issues[0]["resolved"] = True
     client.patch(f"/api/tasks/{task['id']}", json={"issues": issues})
     assert client.post(url, json={"status": "COMPLETED"}).status_code == 409  # not confirmed
-    done = client.post(url, json={"status": "COMPLETED", "confirm_verified": True}).json()
+    # The personal final checklist must be fully ticked
+    partial = {**COMPLETE, "checklist_confirmed": COMPLETE["checklist_confirmed"][:-1]}
+    r = client.post(url, json=partial)
+    assert r.status_code == 409 and "Required clarification completed" in r.json()["message"]
+    done = client.post(url, json=COMPLETE).json()
     assert done["status"] == "COMPLETED" and done["completed_at"]
     assert done["priority_level"] == "NONE"
 

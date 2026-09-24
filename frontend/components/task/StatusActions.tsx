@@ -4,6 +4,7 @@ import { CheckCircle2, Pause, Play, RotateCcw, ShieldAlert, Timer, XCircle, Eye 
 import { useState } from "react";
 
 import { Button, Field, InlineError, Modal, inputClass } from "@/components/ui";
+import { useDocumentSettings } from "@/features/document-ai/hooks";
 import { taskApi, useRefreshTaskData } from "@/features/task-management/hooks";
 import { errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
@@ -59,6 +60,9 @@ export function StatusActions({ task }: { task: Task }) {
   const [target, setTarget] = useState<TaskStatus | null>(null);
   const [note, setNote] = useState("");
   const [verified, setVerified] = useState(false);
+  const [ticked, setTicked] = useState<string[]>([]);
+  const { data: docSettings } = useDocumentSettings();
+  const checklist = docSettings?.final_checklist ?? [];
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +73,7 @@ export function StatusActions({ task }: { task: Task }) {
     setTarget(to);
     setNote("");
     setVerified(false);
+    setTicked([]);
     setError(null);
   }
 
@@ -91,7 +96,7 @@ export function StatusActions({ task }: { task: Task }) {
     setSaving(true);
     setError(null);
     try {
-      await taskApi.changeStatus(task.id, target, note.trim(), verified);
+      await taskApi.changeStatus(task.id, target, note.trim(), verified, ticked);
       await refresh();
       setTarget(null);
     } catch (e) {
@@ -150,6 +155,32 @@ export function StatusActions({ task }: { task: Task }) {
                   <p className="mt-1 text-xs">Resolve them first, or record the instruction you received on the issue.</p>
                 </div>
               ) : (
+                <>
+                {checklist.length > 0 && (
+                  <fieldset className="rounded-xl border border-slate-200 p-3">
+                    <legend className="px-1 text-sm font-semibold text-slate-700">
+                      Final checklist ({ticked.length}/{checklist.length})
+                    </legend>
+                    <ul className="space-y-1.5">
+                      {checklist.map((item) => (
+                        <li key={item}>
+                          <label className="flex items-center gap-3 text-sm">
+                            <input
+                              type="checkbox"
+                              className="h-5 w-5 accent-emerald-600"
+                              checked={ticked.includes(item)}
+                              onChange={(e) =>
+                                setTicked(e.target.checked ? [...ticked, item] : ticked.filter((x) => x !== item))
+                              }
+                            />
+                            {item}
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-slate-500">Your personal checklist (Settings). It does not replace official SOP.</p>
+                  </fieldset>
+                )}
                 <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm">
                   <input
                     type="checkbox"
@@ -162,8 +193,8 @@ export function StatusActions({ task }: { task: Task }) {
                     anything I am unsure about.
                   </span>
                 </label>
+                </>
               )}
-              <p className="text-xs text-slate-500">A configurable final checklist arrives with MVP 3.</p>
             </>
           )}
           {target === "ESCALATED" && (
@@ -185,7 +216,7 @@ export function StatusActions({ task }: { task: Task }) {
             variant={target === "CANCELLED" ? "danger" : "primary"}
             disabled={
               !online ||
-              (target === "COMPLETED" && (blockers.length > 0 || !verified)) ||
+              (target === "COMPLETED" && (blockers.length > 0 || !verified || ticked.length < checklist.length)) ||
               (noteRequired && !note.trim())
             }
             onClick={confirm}

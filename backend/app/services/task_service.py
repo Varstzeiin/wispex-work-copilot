@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
-from app.models import CalendarEvent, Client, Shipment, Task, User, UserSettings
+from app.models import CalendarEvent, Client, DocumentSettings, Shipment, Task, User, UserSettings
+from app.models.document import DEFAULT_FINAL_CHECKLIST
 from app.rules.deadline_rules import evaluate_deadline
 from app.schemas.task import StatusChange, TaskCreate, TaskUpdate
 from app.services import audit_service
@@ -204,6 +205,16 @@ def change_status(db: Session, user: User, task: Task, data: StatusChange) -> Ta
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 "Please confirm that you verified the task before completing it.",
+            )
+        doc_settings = db.get(DocumentSettings, user.id)
+        checklist = doc_settings.final_checklist if doc_settings else list(DEFAULT_FINAL_CHECKLIST)
+        unticked = [item for item in checklist if item not in set(data.checklist_confirmed)]
+        if unticked:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"Final checklist not complete: {', '.join(unticked[:3])}"
+                + (f" and {len(unticked) - 3} more" if len(unticked) > 3 else "")
+                + ".",
             )
 
     now = utcnow()

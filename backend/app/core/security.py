@@ -147,3 +147,12 @@ def decrypt(value: str) -> str:
         return _fernet().decrypt(value.encode()).decode()
     except InvalidToken:
         return ""
+
+
+def encrypt_bytes(data: bytes) -> bytes:
+    """Encrypt file contents at rest (local storage backend)."""
+    return _fernet().encrypt(data)
+
+
+def decrypt_bytes(data: bytes) -> bytes:
+    return _fernet().decrypt(data)

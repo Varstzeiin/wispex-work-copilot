@@ -393,3 +393,154 @@ export interface DevelopmentPlanData {
     } | null;
   }[];
 }
+
+// ---------- MVP 3: documents ----------
+
+export type DocumentType = "INVOICE" | "PACKING_LIST" | "BILL_OF_LADING" | "AIR_WAYBILL" | "OTHER" | "UNKNOWN";
+export type ProcessingStatus =
+  | "UPLOADED"
+  | "QUEUED"
+  | "PROCESSING"
+  | "EXTRACTED"
+  | "NEEDS_REVIEW"
+  | "VERIFIED"
+  | "FAILED"
+  | "AI_NOT_PERMITTED";
+
+export interface DocField {
+  name: string;
+  value: string | null;
+  normalized: string | null;
+  confidence: number;
+  source: "AI" | "HUMAN";
+  status: "OK" | "NEEDS_REVIEW" | "VERIFIED";
+  rule_messages: string[];
+  evidence: string;
+}
+
+export interface DocVersion {
+  id: string;
+  original_filename: string;
+  uploaded_at: string;
+  is_active_version: boolean;
+  changes: { field: string; this: string | null; other: string | null }[];
+}
+
+export interface DocumentItem {
+  id: string;
+  task_id: string | null;
+  shipment_reference: string;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  page_count: number | null;
+  checksum_sha256: string;
+  document_type: DocumentType;
+  type_source: "USER" | "AI" | "HUMAN";
+  type_confidence: number | null;
+  is_active_version: boolean;
+  version_count: number;
+  processing_status: ProcessingStatus;
+  processing_error: string;
+  ai_provider: string;
+  ai_model: string;
+  has_file: boolean;
+  is_demo: boolean;
+  uploaded_at: string;
+  processed_at: string | null;
+  verified_at: string | null;
+  fields: DocField[];
+  review_count: number;
+  versions?: DocVersion[];
+}
+
+export interface Comparison {
+  field: string;
+  document_a: string;
+  value_a: string | null;
+  document_b: string;
+  value_b: string | null;
+  difference: string;
+  status: "MATCH" | "POTENTIAL_MISMATCH" | "CANNOT_COMPARE";
+  requires_human_review: boolean;
+  confidence: number;
+  note: string;
+}
+
+export interface DiscrepancyItem {
+  id: string;
+  shipment_reference: string;
+  task_id: string | null;
+  field: string;
+  document_a: string;
+  document_a_id: string;
+  value_a: string;
+  document_b: string;
+  document_b_id: string;
+  value_b: string;
+  difference: string;
+  confidence: number;
+  status: "OPEN" | "RESOLVED" | "DISMISSED" | "SUPERSEDED";
+  requires_human_review: boolean;
+  potential_impact: string;
+  recommended_action: string;
+  resolution_note: string;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface Completeness {
+  required: string[];
+  available: number;
+  total: number;
+  missing: string[];
+}
+
+export interface ShipmentGroup {
+  shipment_reference: string;
+  task_id: string | null;
+  document_count: number;
+  completeness: Completeness | null;
+  open_discrepancies: number;
+  fields_to_review: number;
+  processing: number;
+  version_choice_needed: boolean;
+  documents: { id: string; original_filename: string; document_type: DocumentType; processing_status: ProcessingStatus; is_active_version: boolean }[];
+  last_upload: string;
+}
+
+export interface ShipmentDetail {
+  shipment_reference: string;
+  task_id: string | null;
+  completeness: Completeness;
+  documents: DocumentItem[];
+  comparisons: Comparison[];
+  notes: string[];
+  discrepancies: DiscrepancyItem[];
+}
+
+export interface DocumentStatus {
+  ai_configured: boolean;
+  ai_provider: string | null;
+  ai_model: string | null;
+  ai_allowed: boolean;
+  ai_permission_confirmed: boolean;
+  is_demo: boolean;
+  max_upload_mb: number;
+  max_pdf_pages: number;
+  accepted: string[];
+  storage: string;
+}
+
+export interface DocumentSettings {
+  ai_processing_allowed: boolean;
+  ai_permission_confirmed_at: string | null;
+  review_threshold: number;
+  weight_tolerance_pct: number;
+  final_checklist: string[];
+}
+
+export interface UploadResult {
+  results: { filename: string; status: "UPLOADED" | "DUPLICATE" | "REJECTED"; document_id?: string; message?: string }[];
+  queued: number;
+}

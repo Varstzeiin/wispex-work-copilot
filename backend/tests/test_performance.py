@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 
-from tests.conftest import make_client, register
+from tests.conftest import COMPLETE, make_client, register
 
 
 def report(client, **kw):
@@ -91,7 +91,7 @@ def test_error_rate_uses_completed_tasks(client):
     report(client)
     assert client.get("/api/errors/analytics").json()["error_rate"] is None
     t = client.post("/api/tasks", json={"title": "Done"}).json()
-    client.post(f"/api/tasks/{t['id']}/status", json={"status": "COMPLETED", "confirm_verified": True})
+    client.post(f"/api/tasks/{t['id']}/status", json=COMPLETE)
     assert client.get("/api/errors/analytics").json()["error_rate"] == 100.0
 
 

@@ -71,7 +71,12 @@ export interface TaskPayload {
 export const taskApi = {
   create: (payload: TaskPayload) => api.post<Task>("/api/tasks", payload),
   update: (id: string, payload: Partial<TaskPayload>) => api.patch<Task>(`/api/tasks/${id}`, payload),
-  changeStatus: (id: string, status: TaskStatus, note = "", confirmVerified = false) =>
-    api.post<Task>(`/api/tasks/${id}/status`, { status, note, confirm_verified: confirmVerified }),
+  changeStatus: (id: string, status: TaskStatus, note = "", confirmVerified = false, checklist: string[] = []) =>
+    api.post<Task>(`/api/tasks/${id}/status`, {
+      status,
+      note,
+      confirm_verified: confirmVerified,
+      checklist_confirmed: checklist,
+    }),
   remove: (id: string) => api.delete(`/api/tasks/${id}`),
 };
