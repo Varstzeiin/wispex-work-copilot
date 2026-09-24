@@ -10,7 +10,7 @@ import re
 from pypdf import PdfReader
 
 from app.ai.prompts.extraction import FIELD_NAMES
-from app.ai.provider import ExtractionResult, validate_output
+from app.ai.provider import ExtractionResult, KnowledgeAnswer, validate_answer, validate_output
 
 _TYPE_HEADINGS = {
     "COMMERCIAL INVOICE": "INVOICE",
@@ -65,3 +65,16 @@ class FakeProvider:
             "fields": fields,
         }
         return validate_output(raw, self.name, "fake-extractor")
+
+    def answer_knowledge_question(self, question: str, sources: list[dict]) -> KnowledgeAnswer:
+        """Quotes the first sentence of the best source. Deterministic, never adds facts."""
+        if not sources:
+            return KnowledgeAnswer(sufficient=False, model="fake-answer")
+        first = sources[0]
+        sentence = re.split(r"(?<=[.!?])\s", first["text"].strip(), maxsplit=1)[0]
+        raw = {"sufficient": True, "answer": f"{sentence} [1]", "used_source_ids": [first["id"]]}
+        return validate_answer(raw, [s["id"] for s in sources], "fake-answer")
+
+    def rewrite_message(self, text: str) -> str:
+        """Collapses repeated spaces only, so tests can check that facts survive a rewrite."""
+        return "\n".join(re.sub(r"[ \t]+", " ", line).strip() for line in text.strip().splitlines())

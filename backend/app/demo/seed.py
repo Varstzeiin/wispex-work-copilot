@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
 from app.core.security import hash_password
+from app.demo.assistant_seed import seed_assistant
 from app.demo.document_seed import seed_documents
 from app.demo.performance_seed import seed_performance
 from app.models import Client, Shipment, Task, User, UserSettings
@@ -159,6 +160,7 @@ def create_demo_user(db: Session) -> User:
     seed_performance(db, user, settings, now)
     # Quantity (SHP-003) and weight (SHP-004) mismatches come from the document check itself
     seed_documents(db, user, now)
+    seed_assistant(db, user, now)
     audit_service.log(db, user.id, "DEMO_SESSION_STARTED", "user", user.id, metadata={"tasks": 15})
     db.commit()
     return user

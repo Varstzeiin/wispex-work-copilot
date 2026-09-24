@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import (
+    assistant,
     audit,
     auth,
     calendar,
@@ -16,6 +17,7 @@ from app.api import (
     documents,
     errors,
     growth,
+    knowledge,
     learning,
     planner,
     reviews,
@@ -100,7 +102,8 @@ async def unexpected_error(request: Request, exc: Exception):
 protected = [Depends(require_csrf_header)]
 routers = (
     auth.router, demo.router, tasks.router, planner.router, settings.router, calendar.router, audit.router,
-    errors.router, reviews.router, learning.router, growth.router, documents.router,
+    errors.router, reviews.router, learning.router, growth.router, documents.router, assistant.router,
+    knowledge.router,
 )
 for router in routers:
     app.include_router(router, prefix="/api", dependencies=protected)
