@@ -43,9 +43,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const message =
       data && typeof data === "object" && "message" in data && typeof data.message === "string"
         ? data.message
-        : response.status >= 500
-          ? FRIENDLY_FALLBACK
-          : "The request could not be completed.";
+        : data === null
+          ? // Not our API's JSON: a proxy or hosting error page, so the backend was not reached
+            "The server is not reachable right now. Nothing was changed. Please try again later."
+          : response.status >= 500
+            ? FRIENDLY_FALLBACK
+            : "The request could not be completed.";
     throw new ApiError(message, response.status);
   }
   return data as T;

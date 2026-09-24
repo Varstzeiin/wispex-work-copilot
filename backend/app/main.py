@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.ai import embeddings
 from app.api import (
     assistant,
     audit,
@@ -36,6 +37,8 @@ logger = logging.getLogger("wispex")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    # Before accepting requests: loading the model mid-traffic can freeze the server (see preload)
+    embeddings.preload()
     yield
 
 

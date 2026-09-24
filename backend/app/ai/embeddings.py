@@ -3,8 +3,8 @@
 The model runs inside the API process (ONNX via fastembed). Knowledge text never leaves the server,
 so semantic search needs no AI permission and also works for demo accounts.
 
-The model loads in a background thread. Until it is ready (or if it cannot load), search falls back
-to keyword matching and the UI says so.
+The model loads when the server starts, before requests are served. If it cannot load, search falls
+back to keyword matching and the UI says so.
 
 Pre-download for offline servers:  python -m app.ai.embeddings download
 """
@@ -13,6 +13,7 @@ import logging
 import math
 import sys
 import threading
+import time
 from typing import Optional, Protocol
 
 from app.core.config import get_settings
@@ -81,8 +82,26 @@ def _load() -> None:
         logger.warning("Semantic search unavailable, using keyword search only: %s", type(exc).__name__)
 
 
+def preload() -> None:
+    """Load the model at server start, before any request is served.
+
+    Loading imports large native libraries and builds the ONNX session, which can hold the Python
+    GIL. Inside a running server that froze every request for seconds on a cold start, so the
+    model is loaded here instead. If it fails, the server still starts with keyword search.
+    """
+    global _status
+    if get_settings().semantic_search != "local" or _embedder is not None:
+        return
+    with _lock:
+        _status = "LOADING"
+    started = time.perf_counter()
+    _load()
+    logger.info("Semantic search start-up took %.1fs (%s)", time.perf_counter() - started, _status)
+
+
 def get_embedder() -> Optional[Embedder]:
-    """The embedder when ready. The first call starts loading it in the background."""
+    """The embedder when ready. Normally preloaded at start-up (see preload); if not, the first call
+    starts loading it in the background and search uses keywords until it is ready."""
     global _status
     if _embedder is not None or _status in ("UNAVAILABLE", "LOADING"):
         return _embedder

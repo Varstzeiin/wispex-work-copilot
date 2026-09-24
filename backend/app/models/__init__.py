@@ -9,6 +9,7 @@ from app.models.audit import AuditLog
 from app.models.automation import AutomationSettings
 from app.models.calendar import CalendarConnection, CalendarEvent
 from app.models.document import Discrepancy, Document, DocumentSettings, ExtractedField
+from app.models.identity import OAuthIdentity
 from app.models.performance import (
     DevelopmentGoal,
     DevelopmentPlan,
@@ -42,6 +43,7 @@ __all__ = [
     "ExtractedField",
     "Feedback",
     "LearningItem",
+    "OAuthIdentity",
     "ShiftReview",
     "Skill",
     "WeeklyReview",

@@ -116,3 +116,30 @@ test("calendar reminder is honest about the missing integration", async ({ page 
   await expect(page.getByText("WISPEX — SHP-001 Submission Deadline")).toBeVisible();
   await snap(page, "09-calendar");
 });
+
+test("login page: Google button only when the server offers it", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByText(/Google sign-in: Integration Required/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Continue with Google" })).toHaveCount(0);
+
+  await page.route("**/api/auth/providers", (route) => route.fulfill({ json: { google: true } }));
+  await page.goto("/login?google=email_exists");
+  const google = page.getByRole("link", { name: "Continue with Google" });
+  await expect(google).toHaveAttribute("href", "/api/auth/google/start");
+  await expect(page.getByText(/An account with this email already exists/)).toBeVisible();
+  await snap(page, "11-login-google");
+});
+
+test("login page explains when the backend cannot be reached", async ({ page }) => {
+  // What a hosting platform returns when /api is not forwarded to a running backend
+  await page.route("**/api/**", (route) =>
+    route.fulfill({ status: 404, contentType: "text/html", body: "<html>Not found</html>" }),
+  );
+  await page.goto("/login");
+  await expect(page.getByText(/The server is not reachable right now, so signing in will not work/)).toBeVisible();
+  await page.getByRole("button", { name: "Create account" }).first().click();
+  await page.getByLabel("Email").fill("someone@example.com");
+  await page.getByLabel("Password").fill("a-long-password");
+  await page.getByRole("button", { name: "Create account" }).last().click();
+  await expect(page.getByRole("alert").filter({ hasText: "Nothing was changed" })).toBeVisible();
+});

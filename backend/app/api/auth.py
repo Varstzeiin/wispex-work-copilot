@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+import secrets
+from datetime import timedelta
+
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.database import create_user_rows, get_db
+from app.core.database import create_user_rows, get_db, utcnow
 from app.core.security import (
     AUTH_COOKIE,
     auth_rate_limiter,
@@ -12,7 +17,8 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models import User
+from app.integrations.google_login import GoogleLoginError, get_google_login_client, pkce_pair
+from app.models import OAuthIdentity, User
 from app.schemas.auth import LoginIn, RegisterIn, UserOut
 from app.services import audit_service, calendar_service
 from app.services.settings_service import get_user_settings
@@ -87,3 +93,93 @@ def delete_account(response: Response, user: User = Depends(get_current_user), d
     db.delete(user)
     db.commit()
     response.delete_cookie(AUTH_COOKIE, path="/")
+
+
+# ---------- Sign in with Google ----------
+
+GOOGLE_FLOW_COOKIE = "wispex_google_flow"
+GOOGLE_FLOW_PATH = "/api/auth/google"
+
+
+@router.get("/providers")
+def providers():
+    """Which sign-in methods this server offers (the login page shows only working buttons)."""
+    return {"google": get_settings().google_login_configured}
+
+
+def _login_error(code: str) -> RedirectResponse:
+    # Relative redirects: the callback is served through the frontend's own domain
+    response = RedirectResponse(f"/login?google={code}", status_code=302)
+    response.delete_cookie(GOOGLE_FLOW_COOKIE, path=GOOGLE_FLOW_PATH)
+    return response
+
+
+@router.get("/google/start")
+def google_start(request: Request):
+    settings = get_settings()
+    if not settings.google_login_configured:
+        return _login_error("unavailable")
+    auth_rate_limiter.check(f"google:{_client_key(request)}")
+    state, nonce = secrets.token_urlsafe(24), secrets.token_urlsafe(24)
+    verifier, challenge = pkce_pair()
+    # One-time values live in a short, signed, httpOnly cookie that only this flow's paths receive
+    flow = jwt.encode(
+        {"state": state, "nonce": nonce, "verifier": verifier, "exp": utcnow() + timedelta(minutes=10)},
+        settings.jwt_secret,
+        algorithm="HS256",
+    )
+    response = RedirectResponse(get_google_login_client().authorization_url(state, nonce, challenge), status_code=302)
+    response.set_cookie(
+        GOOGLE_FLOW_COOKIE, flow, max_age=600, httponly=True, secure=settings.cookie_secure,
+        samesite="lax", path=GOOGLE_FLOW_PATH,
+    )
+    return response
+
+
+@router.get("/google/callback")
+def google_callback(
+    request: Request,
+    code: str = Query(default="", max_length=2048),
+    state: str = Query(default="", max_length=128),
+    error: str = Query(default="", max_length=128),
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    if error:
+        return _login_error("cancelled")
+    try:
+        flow = jwt.decode(request.cookies.get(GOOGLE_FLOW_COOKIE, ""), settings.jwt_secret, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        return _login_error("expired")
+    if not code or not secrets.compare_digest(state, str(flow.get("state", ""))):
+        return _login_error("failed")
+    try:
+        profile = get_google_login_client().profile_from_code(code, flow["verifier"], flow["nonce"])
+    except GoogleLoginError:
+        return _login_error("failed")
+
+    identity = db.scalar(
+        select(OAuthIdentity).where(OAuthIdentity.provider == "google", OAuthIdentity.subject == profile.subject)
+    )
+    if identity is not None:
+        user = db.get(User, identity.user_id)
+        action = "USER_LOGGED_IN"
+    else:
+        if db.scalar(select(User).where(User.email == profile.email)):
+            # Never attach Google to an existing password account automatically: someone could have
+            # registered this address earlier without owning it.
+            return _login_error("email_exists")
+        # "!" is not a valid password hash, so this account can only sign in with Google
+        user = User(email=profile.email, password_hash="!google", full_name=profile.name[:120])
+        db.add(user)
+        db.flush()
+        db.add(OAuthIdentity(user_id=user.id, provider="google", subject=profile.subject, email=profile.email))
+        get_user_settings(db, user)
+        create_user_rows(db, user.id)
+        action = "USER_REGISTERED"
+    audit_service.log(db, user.id, action, "user", user.id, metadata={"method": "google"})
+    db.commit()
+    response = RedirectResponse("/", status_code=302)
+    response.delete_cookie(GOOGLE_FLOW_COOKIE, path=GOOGLE_FLOW_PATH)
+    set_session_cookie(response, user)
+    return response
