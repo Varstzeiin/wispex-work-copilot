@@ -53,6 +53,7 @@ configuration are labelled **Integration Required**. There are no buttons that p
 | **MVP 3:** Document versions (never "newest wins") with change view | ✅ Done |
 | **MVP 3:** Configurable final checklist required before completing a task | ✅ Done |
 | **MVP 4:** Personal knowledge base with local search (notes, learning notes, answered questions, resolved errors) | ✅ Done |
+| **MVP 4:** Search by meaning (local embedding model, hybrid with keywords, keyword fallback) | ✅ Done |
 | **MVP 4:** Answers only from retrieved sources, with citations ("No reliable source found" otherwise) | ✅ Done, AI answer is **Integration Required** (sources are always shown) |
 | **MVP 4:** “I'm not sure” assistant: knowledge first, escalation recommendation, precise question draft | ✅ Done |
 | **MVP 4:** Clarifications and escalations linked to task issues, answers saved as knowledge | ✅ Done |
@@ -178,7 +179,7 @@ UPLOAD → FILE VALIDATION → ENCRYPTED STORAGE → (if permitted) CLAUDE: CLAS
 ### MVP 4: AI copilot
 
 ```text
-QUESTION → LOCAL SEARCH (BM25, your data only) → SOURCES → (if permitted) CLAUDE ANSWERS FROM THOSE SOURCES
+QUESTION → LOCAL HYBRID SEARCH (keywords + meaning, on the server) → SOURCES → (if permitted) CLAUDE ANSWERS FROM THOSE SOURCES
 → CITATIONS CHECKED → ANSWER + SOURCES, or "No reliable source found. Please verify with the appropriate person."
 ```
 
@@ -187,7 +188,16 @@ QUESTION → LOCAL SEARCH (BM25, your data only) → SOURCES → (if permitted) 
   *confirmed* only when the user checked it against an official source or with a senior.
 - **Search never leaves the server** (`app/services/knowledge_service.py`). It also covers learning notes,
   answered questions and resolved errors, shown in the knowledge-first order: training, SOP, personal
-  notes, resolved cases, senior notes. A source counts only if it covers at least half of the question's words.
+  notes, resolved cases, senior notes.
+- **Search by meaning** (`app/ai/embeddings.py`): a small embedding model (`all-MiniLM-L6-v2`, about
+  90 MB, ONNX via fastembed, no GPU) runs inside the API process, so no knowledge text is sent anywhere
+  and no AI permission is needed. A source counts if it covers at least half of the question's words
+  **or** is close enough in meaning (cosine similarity ≥ 0.30, and near the best match). Ranking is
+  meaning similarity plus a bonus for shared words. Vectors are cached per source and recomputed only
+  when the text changes. Results found only by meaning are labelled *Similar meaning*.
+  The model loads in the background. Until it is ready, or if it cannot load, search uses keywords only
+  and the page says so. Example: "Is the heavier figure with the boxes?" finds the note "Gross weight
+  includes packaging", while "What time is lunch?" still returns *No reliable source found*.
 - **AI answers** use `answer_knowledge_question` on the `AIProvider`. Claude gets only the retrieved
   sources, must cite them, and must say when they are not enough. An answer that cites a source that was
   not provided, or none at all, is discarded. Without permission the user sees the sources only.
@@ -250,9 +260,9 @@ To test the PWA install flow and the service worker, use a production build: `np
 ### Running the tests
 
 ```bash
-cd backend && pytest -q                 # 110 tests: rules, priority, planner, auth, authorization, tasks, calendar
+cd backend && pytest -q                 # 118 tests (+1 real-model test with WISPEX_EMBEDDING_MODEL_PATH): rules, priority, planner, auth, authorization, tasks, calendar
                                         # (mocked Google), error workflow, reviews, learning, growth, documents,
-                                        # knowledge search, assistant, drafts, escalation rules,
+                                        # knowledge search (keyword + meaning), assistant, drafts, escalation rules,
                                         # Claude adapter (stub client), Supabase adapter (mocked HTTP)
 cd frontend && npm test                 # unit tests (countdown, timezone conversion)
 cd frontend && npm run lint && npm run typecheck
@@ -284,6 +294,7 @@ Nothing secret is ever sent to the browser.
 | `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | `anthropic` enables Claude document reading and assistant answers. Key falls back to `ANTHROPIC_API_KEY` |
 | `STORAGE_BACKEND` / `STORAGE_DIR` | backend | `local` (encrypted files) or `supabase` |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` | backend | Private Supabase Storage bucket (server side only) |
+| `SEMANTIC_SEARCH` / `EMBEDDING_MODEL` / `EMBEDDING_MODEL_PATH` / `EMBEDDING_CACHE_DIR` | backend | Local search by meaning (`local` or `off`). Model downloads on first use, or pre-download with `python -m app.ai.embeddings download` |
 | `DEMO_RATE_LIMIT_PER_MINUTE` | backend | Demo sessions per minute per address (default 30) |
 | `BACKEND_URL` | frontend (server only) | Where Next.js forwards `/api/*` |
 
@@ -349,7 +360,11 @@ the app refuses to start with development secrets.
   server; for several servers or heavy volume, move it to a queue worker (e.g. RQ + Redis).
 - Malware scanning of uploads is not included. Files are never executed or rendered by the server and are
   always downloaded as attachments, but add a scanner before accepting files from untrusted sources.
-- Knowledge search is lexical (BM25). It finds matching words, not synonyms. Semantic search (embeddings)
-  would need another provider decision, so it is not included.
+- Search by meaning uses a small English model, chosen because it is light and could be tested here.
+  It handles paraphrases but not every case (for example "who receives the shipment" does not find a note
+  about the consignee). For Indonesian notes, set `EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+  (about 220 MB). Its similarity threshold (0.40) is an estimate: check it with your own notes first.
+- The embedding model adds about 180 MB of memory to the API process (measured: 85 MB to 264 MB). On very small servers set
+  `SEMANTIC_SEARCH=off` to keep keyword search only.
 - The Claude integration is covered by tests with a stub client. It has not been run against the live
   API in this repository's CI, because that needs a real key and sends data to a provider.

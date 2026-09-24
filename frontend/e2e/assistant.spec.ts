@@ -133,4 +133,13 @@ test("real account with (fake) AI: answer only from saved knowledge", async ({ p
   await expect(page.getByText("Answer from your sources")).toBeVisible();
   await expect(page.getByText("Gross weight includes packaging. [1]")).toBeVisible();
   await snap(page, "33-ai-answer");
+
+  // With the local model loaded, a question with none of the note's words still finds it
+  if (await page.getByText(/Search by meaning is on/).isVisible()) {
+    await page.getByLabel("Your question").fill("Is the heavier figure with the boxes?");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByText("Similar meaning")).toBeVisible();
+    await expect(page.getByText("Answer from your sources")).toBeVisible();
+    await snap(page, "34-meaning");
+  }
 });

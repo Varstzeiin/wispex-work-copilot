@@ -9,6 +9,8 @@ os.environ["JWT_SECRET"] = "test-secret-test-secret-test-secret-123"
 os.environ["GOOGLE_CLIENT_ID"] = ""
 os.environ["GOOGLE_CLIENT_SECRET"] = ""
 os.environ["GOOGLE_REDIRECT_URI"] = ""
+# Tests never download or run the embedding model. Semantic tests inject a deterministic embedder.
+os.environ["SEMANTIC_SEARCH"] = "off"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -34,6 +36,9 @@ def fresh_db(tmp_path):
 
     set_storage(LocalEncryptedStorage(str(tmp_path / "storage")))
     set_provider(None)  # document AI disabled unless a test enables it
+    from app.ai import embeddings
+
+    embeddings.reset()  # keyword search only unless a test injects an embedder
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     auth_rate_limiter.reset()

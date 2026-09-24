@@ -37,6 +37,9 @@ export function SourceList({ sources, cited = [] }: { sources: KnowledgeResult[]
               ) : (
                 title
               )}
+              {s.match === "meaning" && (
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800">Similar meaning</span>
+              )}
               {s.verified ? (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
                   <BadgeCheck className="h-3.5 w-3.5" aria-hidden /> Confirmed

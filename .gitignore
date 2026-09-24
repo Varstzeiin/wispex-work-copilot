@@ -25,3 +25,4 @@ playwright-report/
 
 # Uploaded documents (local storage backend)
 backend/storage/
+backend/models/

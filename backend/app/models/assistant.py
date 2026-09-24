@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import JSON, Boolean, ForeignKey, String, Text, Uuid
+from sqlalchemy import JSON, Boolean, ForeignKey, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, UTCDateTime, utcnow
@@ -116,3 +116,23 @@ class AssistantSettings(Base):
     ai_assist_confirmed_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
     # Checklist suggestions the user dismissed, so they are not suggested again
     dismissed_suggestions: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class KnowledgeEmbedding(Base):
+    """Cached embedding of one searchable source (note, learning note, answered question, resolved error).
+
+    Recomputed when the text changes (content hash) or the model changes. Only vectors are stored here,
+    never the text itself.
+    """
+
+    __tablename__ = "knowledge_embeddings"
+    __table_args__ = (UniqueConstraint("user_id", "source_kind", "source_id", "model"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_kind: Mapped[str] = mapped_column(String(20))
+    source_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    model: Mapped[str] = mapped_column(String(120))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    vector: Mapped[list] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)

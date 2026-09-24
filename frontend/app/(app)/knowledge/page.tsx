@@ -4,6 +4,7 @@ import { BadgeCheck, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
+import { SearchModeNote } from "@/components/assistant/SearchModeNote";
 import { SourceList } from "@/components/assistant/SourceList";
 import { Badge, Button, EmptyState, ErrorState, Field, InlineError, Modal, PageHeader, Spinner, inputClass } from "@/components/ui";
 import { useKnowledge, useRefreshAssistant } from "@/features/assistant/hooks";
@@ -112,6 +113,7 @@ function Knowledge() {
             </option>
           ))}
         </select>
+        <SearchModeNote />
       </div>
 
       <p className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">

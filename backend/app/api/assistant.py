@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai import embeddings
 from app.ai.provider import get_provider
 from app.core.config import get_settings
 from app.core.database import get_db, utcnow
@@ -38,6 +39,8 @@ def assistant_status(user: User = Depends(get_current_user), db: Session = Depen
         "ai_permission_confirmed": s.ai_assist_allowed,
         "is_demo": user.is_demo,
         "knowledge_notes": len(notes),
+        # READY | LOADING | UNAVAILABLE | OFF. Local model, no data leaves the server.
+        "semantic_search": embeddings.status(),
     }
 
 

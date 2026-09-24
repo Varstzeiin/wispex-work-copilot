@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_bucket: str = "documents"
 
+    # Knowledge search by meaning (MVP 4). "local" runs a small embedding model on this server,
+    # so no knowledge text leaves it. "off" keeps keyword search only.
+    semantic_search: str = "local"
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model_path: str = ""  # a pre-downloaded model folder (offline servers)
+    embedding_cache_dir: str = "./models"
+    semantic_min_similarity: float = 0.0  # 0 = the tested default for the chosen model
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

@@ -581,7 +581,10 @@ export interface KnowledgeResult {
   source_label: string;
   verified: boolean;
   category: string;
+  /** keyword: shares the question's words. meaning: similar meaning (local model). both. */
+  match: "keyword" | "meaning" | "both";
   coverage: number;
+  similarity: number | null;
   score: number;
 }
 
@@ -597,6 +600,7 @@ export interface AssistantStatus {
   ai_permission_confirmed: boolean;
   is_demo: boolean;
   knowledge_notes: number;
+  semantic_search: "READY" | "LOADING" | "UNAVAILABLE" | "OFF";
 }
 
 export interface AskResult {

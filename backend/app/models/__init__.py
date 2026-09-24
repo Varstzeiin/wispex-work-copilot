@@ -1,4 +1,10 @@
-from app.models.assistant import AssistantSettings, Clarification, CommunicationDraft, KnowledgeNote
+from app.models.assistant import (
+    AssistantSettings,
+    Clarification,
+    CommunicationDraft,
+    KnowledgeEmbedding,
+    KnowledgeNote,
+)
 from app.models.audit import AuditLog
 from app.models.calendar import CalendarConnection, CalendarEvent
 from app.models.document import Discrepancy, Document, DocumentSettings, ExtractedField
@@ -19,6 +25,7 @@ __all__ = [
     "AssistantSettings",
     "Clarification",
     "CommunicationDraft",
+    "KnowledgeEmbedding",
     "KnowledgeNote",
     "AuditLog",
     "CalendarConnection",

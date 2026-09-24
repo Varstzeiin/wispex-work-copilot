@@ -5,6 +5,8 @@ answered questions and resolved errors. It runs locally, so searching never send
 AI provider. An AI answer is generated only from the retrieved sources, and only when permitted.
 """
 
+import hashlib
+import logging
 import math
 import re
 import uuid
@@ -12,12 +14,22 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.ai.embeddings import cosine, get_embedder
 from app.ai.provider import ProviderError, get_provider
 from app.core.database import get_or_create_user_row
-from app.models import AssistantSettings, Clarification, ErrorReport, KnowledgeNote, LearningItem, User
+from app.models import (
+    AssistantSettings,
+    Clarification,
+    ErrorReport,
+    KnowledgeEmbedding,
+    KnowledgeNote,
+    LearningItem,
+    User,
+)
 from app.services import audit_service
 
 NO_SOURCE_MESSAGE = "No reliable source found. Please verify with the appropriate person."
@@ -54,6 +66,10 @@ STOP_WORDS = set(
 )
 MIN_COVERAGE = 0.5  # at least half of the meaningful question words must appear in a source
 MAX_SOURCES = 5
+KEYWORD_BONUS = 0.3  # weight of shared words on top of meaning similarity
+MEANING_MARGIN = 0.08  # meaning-only matches must be this close to the best one
+
+logger = logging.getLogger("wispex.knowledge")
 
 
 def tokenize(text: str) -> list[str]:
@@ -126,52 +142,150 @@ def _snippet(text: str, terms: set[str], limit: int = 240) -> str:
     return best if len(best) <= limit else best[: limit - 1].rstrip() + "…"
 
 
+def _source_text(s: Source) -> str:
+    return f"{s.title}. {s.text}"[:2000]
+
+
+def _vectors(db: Session, user: User, corpus: list[Source], embedder) -> list[list[float]]:
+    """Embeddings for every source, cached per user and recomputed only when the text changes."""
+    rows = {
+        (r.source_kind, r.source_id): r
+        for r in db.scalars(
+            select(KnowledgeEmbedding).where(
+                KnowledgeEmbedding.user_id == user.id, KnowledgeEmbedding.model == embedder.name
+            )
+        ).all()
+    }
+    hashes = [hashlib.sha256(_source_text(s).encode()).hexdigest() for s in corpus]
+    stale = [
+        i for i, s in enumerate(corpus)
+        if (row := rows.get((s.kind, s.id))) is None or row.content_hash != hashes[i]
+    ]
+    fresh = embedder.embed([_source_text(corpus[i]) for i in stale]) if stale else []
+    stale_set = set(stale)
+    vectors = [None if i in stale_set else rows[(s.kind, s.id)].vector for i, s in enumerate(corpus)]
+
+    for i, vector in zip(stale, fresh, strict=True):
+        vectors[i] = vector
+        s = corpus[i]
+        row = rows.get((s.kind, s.id))
+        if row is None:
+            db.add(KnowledgeEmbedding(user_id=user.id, source_kind=s.kind, source_id=s.id, model=embedder.name,
+                                      content_hash=hashes[i], vector=vector))
+        else:
+            row.content_hash, row.vector = hashes[i], vector
+    live = {(s.kind, s.id) for s in corpus}
+    orphans = [r for key, r in rows.items() if key not in live]
+    for r in orphans:
+        db.delete(r)
+    if stale or orphans:
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()  # a parallel search cached the same source first. The vectors above are still valid.
+    return vectors
+
+
+def _best_sentence(text: str, query_vector: list[float], embedder, limit: int = 240) -> str:
+    sentences = [x.strip() for x in re.split(r"(?<=[.!?])\s+|\n+", text) if x.strip()][:12]
+    if not sentences:
+        return ""
+    scores = [cosine(v, query_vector) for v in embedder.embed(sentences)]
+    best = sentences[scores.index(max(scores))]
+    return best if len(best) <= limit else best[: limit - 1].rstrip() + "…"
+
+
 def search(db: Session, user: User, query: str, limit: int = 8) -> list[dict]:
-    """BM25 ranking. A source counts only if it covers enough of the question's words."""
+    """Hybrid search: keyword matching (BM25) and, when the local model is ready, matching by meaning.
+
+    A source counts only if it covers enough of the question's words OR is close enough in meaning.
+    With the model, the ranking is meaning similarity plus a bonus for shared words.
+    """
     terms = list(dict.fromkeys(tokenize(query)))
-    if not terms:
-        return []
-    corpus = _corpus(db, user)
+    corpus = _corpus(db, user) if query.strip() else []
     if not corpus:
         return []
     n = len(corpus)
-    avg_len = sum(len(s.tokens) for s in corpus) / n or 1
-    df = Counter(t for s in corpus for t in set(s.tokens))
-    k1, b = 1.2, 0.75
+
+    # Keyword ranking (BM25)
+    keyword: dict[int, tuple[float, float]] = {}
+    if terms:
+        avg_len = sum(len(s.tokens) for s in corpus) / n or 1
+        df = Counter(t for s in corpus for t in set(s.tokens))
+        k1, b = 1.2, 0.75
+        for i, s in enumerate(corpus):
+            tf = Counter(s.tokens)
+            matched = [t for t in terms if tf[t]]
+            if not matched:
+                continue
+            score = 0.0
+            for t in matched:
+                idf = math.log(1 + (n - df[t] + 0.5) / (df[t] + 0.5))
+                score += idf * tf[t] * (k1 + 1) / (tf[t] + k1 * (1 - b + b * len(s.tokens) / avg_len))
+            keyword[i] = (score, len(matched) / len(terms))
+
+    # Meaning ranking (local embeddings)
+    meaning: dict[int, float] = {}
+    embedder = get_embedder()
+    query_vector = None
+    if embedder is not None:
+        try:
+            vectors = _vectors(db, user, corpus, embedder)
+            query_vector = embedder.embed([query])[0]
+            meaning = {i: cosine(v, query_vector) for i, v in enumerate(vectors)}
+        except Exception as exc:  # never let the optional model break search
+            logger.warning("Semantic search failed, keyword results only: %s", type(exc).__name__)
+            meaning, query_vector = {}, None
+
+    by_keyword = {i for i, (_, cov) in keyword.items() if cov >= MIN_COVERAGE}
+    by_meaning: set[int] = set()
+    if meaning:
+        close = [sim for sim in meaning.values() if sim >= embedder.min_similarity]
+        if close:
+            # Meaning-only matches must also be near the best one, so loosely related notes stay out
+            cutoff = max(embedder.min_similarity, max(close) - MEANING_MARGIN)
+            by_meaning = {i for i, sim in meaning.items() if sim >= cutoff}
+    eligible = by_keyword | by_meaning
+    if not eligible:
+        return []
+
+    if meaning:
+        # Similarity in meaning, plus a bonus for sharing the question's words
+        scores = {i: meaning[i] + KEYWORD_BONUS * keyword.get(i, (0.0, 0.0))[1] for i in eligible}
+    else:
+        scores = {i: keyword[i][0] for i in eligible}
+    for i in eligible:
+        if corpus[i].verified:
+            scores[i] *= 1.1  # confirmed knowledge first when relevance is similar
+    ranked = sorted(eligible, key=lambda i: (-scores[i], ORIGIN_ORDER[corpus[i].origin]))[:limit]
 
     results = []
-    for s in corpus:
-        tf = Counter(s.tokens)
-        matched = [t for t in terms if tf[t]]
-        coverage = len(matched) / len(terms)
-        if coverage < MIN_COVERAGE:
-            continue
-        score = 0.0
-        for t in matched:
-            idf = math.log(1 + (n - df[t] + 0.5) / (df[t] + 0.5))
-            score += idf * tf[t] * (k1 + 1) / (tf[t] + k1 * (1 - b + b * len(s.tokens) / avg_len))
-        if s.verified:
-            score *= 1.15  # confirmed knowledge first when relevance is similar
-        results.append((score, coverage, s))
-
-    results.sort(key=lambda r: (-r[0], ORIGIN_ORDER[r[2].origin]))
-    return [
-        {
-            "kind": s.kind,
-            "id": s.id,
-            "title": s.title,
-            "snippet": _snippet(s.text, set(terms)),
-            "origin": s.origin,
-            "origin_label": ORIGIN_LABEL[s.origin],
-            "source_label": s.source_label,
-            "verified": s.verified,
-            "category": s.category,
-            "coverage": round(coverage, 2),
-            "score": round(score, 3),
-            "_text": s.text,
-        }
-        for score, coverage, s in results[:limit]
-    ]
+    for i in ranked:
+        s = corpus[i]
+        match = "both" if i in by_keyword and i in by_meaning else "keyword" if i in by_keyword else "meaning"
+        if match == "meaning" and query_vector is not None:
+            snippet = _best_sentence(s.text, query_vector, embedder)
+        else:
+            snippet = _snippet(s.text, set(terms))
+        results.append(
+            {
+                "kind": s.kind,
+                "id": s.id,
+                "title": s.title,
+                "snippet": snippet,
+                "origin": s.origin,
+                "origin_label": ORIGIN_LABEL[s.origin],
+                "source_label": s.source_label,
+                "verified": s.verified,
+                "category": s.category,
+                "match": match,
+                "coverage": round(keyword.get(i, (0.0, 0.0))[1], 2),
+                "similarity": round(meaning[i], 2) if i in meaning else None,
+                "score": round(scores[i], 4),
+                "_text": s.text,
+            }
+        )
+    return results
 
 
 def public(results: list[dict]) -> list[dict]:
@@ -297,6 +411,11 @@ def update_note(db: Session, user: User, note: KnowledgeNote, changes: dict) -> 
 def delete_note(db: Session, user: User, note: KnowledgeNote) -> None:
     for c in db.scalars(select(Clarification).where(Clarification.knowledge_note_id == note.id)).all():
         c.knowledge_note_id = None
+    db.execute(
+        delete(KnowledgeEmbedding).where(
+            KnowledgeEmbedding.source_kind == "NOTE", KnowledgeEmbedding.source_id == note.id
+        )
+    )
     db.delete(note)
     audit_service.log(db, user.id, "KNOWLEDGE_NOTE_DELETED", "knowledge", note.id)
     db.commit()

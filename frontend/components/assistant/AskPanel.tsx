@@ -3,6 +3,7 @@
 import { BookOpen, Search, ShieldQuestion } from "lucide-react";
 import { useState } from "react";
 
+import { SearchModeNote } from "@/components/assistant/SearchModeNote";
 import { SourceList } from "@/components/assistant/SourceList";
 import { Button, Card, InlineError, inputClass } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
@@ -54,7 +55,8 @@ export function AskPanel() {
           <Search className="h-4 w-4" aria-hidden />
         </Button>
       </form>
-      <div className="mt-2">
+      <div className="mt-2 space-y-2">
+        <SearchModeNote />
         <InlineError message={error} />
       </div>
 
