@@ -33,6 +33,8 @@ export interface Issue {
   type: IssueType;
   description: string;
   resolved: boolean;
+  created_at?: string | null;
+  resolved_at?: string | null;
 }
 
 export interface DeadlineInfo {
@@ -203,4 +205,191 @@ export interface AuditItem {
   previous_state: Record<string, unknown> | null;
   new_state: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
+}
+
+// ---------- MVP 2: performance ----------
+
+export type ErrorCategory =
+  | "TYPOGRAPHICAL"
+  | "DATA_READING"
+  | "DATA_ENTRY"
+  | "MISSING_INFORMATION"
+  | "CROSS_DOCUMENT"
+  | "SOP_PROCEDURE"
+  | "COMMUNICATION"
+  | "TIME_MANAGEMENT"
+  | "OTHER";
+export type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type ErrorStatus = "REPORTED" | "NOTIFIED" | "CORRECTING" | "RESOLVED";
+
+export interface ErrorReport {
+  id: string;
+  task_id: string | null;
+  shipment_reference: string;
+  field_name: string;
+  incorrect_value: string;
+  correct_value: string;
+  source_document: string;
+  submitted_at: string | null;
+  discovered_at: string;
+  category: ErrorCategory;
+  category_label: string;
+  severity: Severity;
+  impact: string;
+  notified_person: string;
+  notified_at: string | null;
+  correction_notes: string;
+  instructions: string;
+  resolution: string;
+  resolved_at: string | null;
+  root_cause: ErrorCategory | "";
+  root_cause_notes: string;
+  prevention_action: string;
+  status: ErrorStatus;
+  steps: { step: number; label: string; done: boolean }[];
+  correction_minutes: number | null;
+  report_delay_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CountItem {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface RecurringPattern {
+  kind: "FIELD" | "CATEGORY";
+  key: string;
+  count: number;
+  message: string;
+  suggested_learning: string;
+}
+
+export interface ErrorAnalytics {
+  days: number;
+  total: number;
+  open: number;
+  tasks_completed: number;
+  error_rate: number | null;
+  by_category: CountItem[];
+  by_severity: CountItem[];
+  by_root_cause: CountItem[];
+  avg_correction_minutes: number | null;
+  rca_completed: number;
+  resolved: number;
+  reported_within_hour: number;
+  trend: { week_start: string; count: number }[];
+  recurring: RecurringPattern[];
+}
+
+export interface PeriodStats {
+  tasks_completed: number;
+  completed_on_time: number;
+  completed_with_deadline: number;
+  avg_processing_minutes: number | null;
+  errors: number;
+  error_categories: Record<string, number>;
+  escalations: number;
+  discrepancies: number;
+  issue_types: Record<string, number>;
+  learning_completed: number;
+  feedback_applied: number;
+}
+
+export interface ShiftReviewData {
+  review_date: string;
+  is_today: boolean;
+  stats: PeriodStats & {
+    pending?: number;
+    critical?: number;
+    waiting?: number;
+    tomorrow_priorities?: { task_id: string; label: string; reason: string }[];
+  };
+  recurring_issue: { source: string; label: string; count: number } | null;
+  summary: string;
+  reflection: { went_well: string; to_improve: string; tomorrow_focus: string; saved_at: string | null };
+}
+
+export interface WeeklyReviewData {
+  week_start: string;
+  week_end: string;
+  stats: PeriodStats;
+  previous_week: PeriodStats;
+  days: { date: string; completed: number; errors: number; escalations: number }[];
+  recurring_issue: { source: string; label: string; count: number } | null;
+  shift_reviews_logged: number;
+  reflection: { went_well: string; to_improve: string; next_week_focus: string; saved_at: string | null };
+}
+
+export interface ReviewHistory {
+  shift_reviews: { review_date: string; tasks_completed: number; errors: number; has_reflection: boolean }[];
+  weekly_reviews: { week_start: string; tasks_completed: number; errors: number; has_reflection: boolean }[];
+}
+
+export type LearningCategory = "SOP" | "DOCUMENT" | "TERMINOLOGY" | "PROCEDURE" | "SYSTEM" | "LESSON" | "OTHER";
+export type LearningStatus = "TO_LEARN" | "LEARNING" | "UNDERSTOOD" | "APPLIED";
+
+export interface LearningItem {
+  id: string;
+  title: string;
+  category: LearningCategory;
+  source: string;
+  notes: string;
+  status: LearningStatus;
+  understood_at: string | null;
+  created_at: string;
+}
+
+export interface FeedbackItem {
+  id: string;
+  received_at: string;
+  from_role: string;
+  summary: string;
+  action_plan: string;
+  applied: boolean;
+  applied_at: string | null;
+  applied_evidence: string;
+}
+
+export interface SkillItem {
+  id: string;
+  name: string;
+  level: number;
+  evidence: string;
+  is_default: boolean;
+  history: { level: number; at: string }[];
+  updated_at: string;
+}
+
+export interface Indicator {
+  key: string;
+  label: string;
+  value: string;
+  status: "GOOD" | "WATCH" | "NEEDS_ATTENTION" | "NO_DATA";
+  evidence: string[];
+  note: string;
+}
+
+export interface DevelopmentPlanData {
+  start_date: string | null;
+  day_number: number | null;
+  today: string;
+  phases: {
+    phase: 30 | 60 | 90;
+    title: string;
+    window: { start: string; end: string } | null;
+    status: "NOT_STARTED" | "PAST" | "CURRENT" | "UPCOMING";
+    goals: { id: string; title: string; done: boolean; done_at: string | null; evidence: string; is_default: boolean }[];
+    goals_done: number;
+    evidence: {
+      tasks_completed: number;
+      on_time_rate: number | null;
+      errors: number;
+      learning_completed: number;
+      feedback_applied: number;
+      shift_reviews: number;
+    } | null;
+  }[];
 }

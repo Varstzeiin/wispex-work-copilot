@@ -12,10 +12,10 @@ always shows *why*.
 
 ---
 
-## Status: MVP 1 (Work Management) is complete
+## Status: MVP 1 (Work Management) and MVP 2 (Performance) are complete
 
-The spec asks for feature-by-feature delivery. MVP 1 is fully implemented and tested. Later phases are
-visible in the app but clearly labelled **Coming Later**. There are no buttons that pretend to work.
+The spec asks for feature-by-feature delivery. MVP 1 and MVP 2 are fully implemented and tested. Later
+phases are visible in the app but clearly labelled **Coming Later**. There are no buttons that pretend to work.
 
 | Area | Status |
 |---|---|
@@ -37,7 +37,13 @@ visible in the app but clearly labelled **Coming Later**. There are no buttons t
 | PWA (manifest, icons, service worker, offline page) | ✅ Done |
 | Demo mode with fictional data | ✅ Done |
 | Account + data deletion | ✅ Done |
-| MVP 2 Performance (error log, reviews, reliability indicators, 30/60/90) | ⏳ Coming Later |
+| **MVP 2:** Report an Error workflow (11 steps, ordered, never deletable) | ✅ Done |
+| **MVP 2:** Error analytics (rate, categories, severity, root causes, correction time, 8-week trend) | ✅ Done |
+| **MVP 2:** Recurring-error detection with suggestions (never changes anything automatically) | ✅ Done |
+| **MVP 2:** Daily log / end-of-shift review and weekly review (calculated numbers + your reflection) | ✅ Done |
+| **MVP 2:** Learning tracker, feedback log, skill matrix with level history | ✅ Done |
+| **MVP 2:** Personal Reliability Indicators (evidence per indicator, no overall score) | ✅ Done |
+| **MVP 2:** 30 / 60 / 90 day development plan with goals and recorded evidence per phase | ✅ Done |
 | MVP 3 Document intelligence (upload, OCR, extraction, cross-document checks) | ⏳ Coming Later |
 | MVP 4 AI copilot (knowledge/RAG, “I'm not sure”, drafting) | ⏳ Coming Later |
 | MVP 5 Advanced automation | ⏳ Coming Later |
@@ -69,19 +75,21 @@ displays it. Only the ticking of countdowns is computed in the browser.
 
 ```text
 backend/app
-├── api/           auth, tasks, planner (+ notifications), settings, calendar, audit, demo
+├── api/           auth, tasks, planner (+ notifications), settings, calendar, audit, demo,
+│                  errors, reviews, learning, growth
 ├── core/          config (env vars), database, security (hashing, JWT, CSRF, rate limit, encryption)
 ├── models/        users, user_settings, clients, shipments, tasks, calendar_*, audit_logs
 ├── rules/         deadline_rules.py (deterministic)
-├── services/      priority, planner, task, calendar, audit, settings
+├── services/      priority, planner, task, calendar, audit, settings, error, review, growth
 ├── integrations/  google_calendar.py (OAuth + REST, swappable)
 └── demo/          fictional seed data
 
 frontend
-├── app/(app)/     dashboard, tasks, planner, focus, documents, assistant, calendar, settings, activity, more, …
+├── app/(app)/     dashboard, tasks, planner, focus, documents, assistant, calendar, settings, activity,
+│                  reviews, errors, learning, growth, more, …
 ├── app/login/
 ├── components/    ui, navigation, task, forms, assistant
-├── features/      task-management, daily-planner (data hooks)
+├── features/      task-management, daily-planner, performance (data hooks)
 ├── lib/           api client, hooks, time/timezone utils, labels
 └── public/        sw.js, offline.html, icons
 ```
@@ -104,12 +112,32 @@ Levels: Critical ≥ 70, High ≥ 50, Medium ≥ 30. A task inside the critical 
 Critical, and Critical always sorts above High. Every task shows its reasons and a factor breakdown.
 All weights and deadline thresholds are **personal settings, never presented as company policy**.
 
+### MVP 2: performance and growth
+
+- **Report an Error** follows the spec's 11 steps. The status can only move forward in order:
+  `REPORTED → NOTIFIED → CORRECTING → RESOLVED`, and each step requires its record (who was notified,
+  the correction, the resolution). Reporting requires the "stop and verify" confirmation. There is no
+  delete endpoint: an error report can be corrected or resolved, never hidden.
+- **Recurring patterns**: 3 or more errors on the same field (or category) within 14 days produce a
+  suggestion such as *"You have encountered three weight-related errors in the last 14 days. Consider
+  adding an explicit weight verification step to your personal checklist."* Nothing changes unless the
+  user chooses to add it as a learning item. Official SOP is never modified.
+- **Reviews** count completed tasks, on-time rate, errors, discrepancies (issues now carry timestamps),
+  escalations, average processing time, learning completed and feedback applied, for a local day or
+  week. Today's review adds pending/critical work and tomorrow's priorities from the planner.
+- **Personal Reliability Indicators** show the evidence behind each value (e.g. "54 of 60 tasks with a
+  deadline were completed before it"). "Questions asked clearly" is honestly marked *not tracked yet*
+  until the MVP 4 question assistant exists. Escalating when needed is never counted against the user.
+- **30 / 60 / 90**: Understanding, Consistency, Independence and reliability. Default goals can be
+  ticked with written evidence, and each phase shows the work actually recorded in that period.
+
 ### Safeguards that are enforced, not just displayed
 
 - A task cannot be completed while required documents are missing or issues are open.
 - Completing requires an explicit “I verified…” confirmation.
 - Resolving an issue requires writing down how it was resolved (added to the notes with a timestamp).
 - Escalating or holding requires a note (who / why).
+- Error reports follow the workflow in order and cannot be deleted.
 - The app never decides which document is correct.
 - Work is never reassigned automatically. Messages are never sent automatically.
 
@@ -142,7 +170,8 @@ To test the PWA install flow and the service worker, use a production build: `np
 ### Running the tests
 
 ```bash
-cd backend && pytest -q                 # 46 tests: rules, priority, planner, auth, authorization, tasks, calendar (mocked Google)
+cd backend && pytest -q                 # 62 tests: rules, priority, planner, auth, authorization, tasks, calendar
+                                        # (mocked Google), error workflow, analytics, reviews, learning, growth
 cd frontend && npm test                 # unit tests (countdown, timezone conversion)
 cd frontend && npm run lint && npm run typecheck
 
@@ -223,8 +252,9 @@ the app refuses to start with development secrets.
 
 ## Known limitations and next steps
 
-- Database tables are created at startup (`create_all`). Add Alembic migrations before the first
-  production schema change.
+- Database tables are created at startup (`create_all`). New tables (like MVP 2's) are added
+  automatically, but changed columns are not. Add Alembic migrations before the first production
+  schema change.
 - The rate limiter is in-memory (single instance). Use Redis when running several instances.
 - Google sign-in for the app itself is not implemented yet (Google is used only for Calendar).
 - MVP 3 will need object storage (Supabase Storage) and a background worker (e.g. RQ + Redis) for
