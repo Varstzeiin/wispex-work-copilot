@@ -359,6 +359,29 @@ Without Google, every reminder can be downloaded as an `.ics` file (with the sam
 
 Use separate development, staging and production environments. Never develop against production data.
 
+**Vercel checklist.** Vercel runs only the Next.js frontend. The FastAPI backend must be deployed
+separately, and the frontend forwards every `/api/*` request to it:
+
+1. Vercel project: *Root Directory* `frontend`.
+2. Vercel → Settings → Environment Variables: `BACKEND_URL=https://<your-backend>` (then redeploy).
+   Without it sign-in, the demo and all data fail ("The server is not reachable right now").
+3. Backend: `FRONTEND_URL=https://<your-app>.vercel.app`, `COOKIE_SECURE=true`, and a persistent
+   `DATABASE_URL` (Supabase PostgreSQL). SQLite on most hosts is wiped on every restart.
+
+### Enabling "Continue with Google"
+
+1. Google Cloud Console → APIs & Services → Credentials → *Create OAuth client ID* → Web application.
+2. Authorized redirect URI: `https://<your-app>.vercel.app/api/auth/google/callback`
+   (for local development also `http://localhost:3000/api/auth/google/callback`).
+3. OAuth consent screen: scopes `openid`, `email`, `profile` only.
+4. Backend env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FRONTEND_URL` (the redirect URI is derived
+   from it, or set `GOOGLE_LOGIN_REDIRECT_URI`). The login page shows the button only when this is set.
+
+The flow is OpenID Connect with PKCE, a one-time `state` and `nonce` in a short signed cookie, and only
+verified Google email addresses. A Google sign-in never attaches itself to an existing password account
+with the same email (someone could have registered that address without owning it): the user is asked
+to sign in with the password instead.
+
 Production checklist: `APP_ENV=production`, strong `JWT_SECRET`, `ENCRYPTION_KEY`, `COOKIE_SECURE=true`,
 HTTPS everywhere, `DEMO_MODE_ENABLED=false` if not needed. In production the API docs are disabled and
 the app refuses to start with development secrets.
@@ -396,7 +419,6 @@ the app refuses to start with development secrets.
   automatically, but changed columns are not. Add Alembic migrations before the first production
   schema change.
 - The rate limiter is in-memory (single instance). Use Redis when running several instances.
-- Google sign-in for the app itself is not implemented yet (Google is used only for Calendar).
 - Document processing runs in FastAPI background tasks inside the API process. That is fine for one
   server; for several servers or heavy volume, move it to a queue worker (e.g. RQ + Redis).
 - Malware scanning of uploads is not included. Files are never executed or rendered by the server and are

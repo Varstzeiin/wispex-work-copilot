@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = ""
     frontend_url: str = "http://localhost:3000"
+    # Sign in with Google uses the same OAuth client. The callback goes through the frontend origin
+    # (Next.js forwards /api to the backend), so the session cookie is set on the app's own domain.
+    google_login_redirect_uri: str = ""  # default: {FRONTEND_URL}/api/auth/google/callback
 
     # Demo mode can be switched off in production
     demo_mode_enabled: bool = True
@@ -80,6 +83,14 @@ class Settings(BaseSettings):
     @property
     def ai_configured(self) -> bool:
         return self.ai_provider in ("anthropic", "fake")
+
+    @property
+    def google_login_redirect(self) -> str:
+        return self.google_login_redirect_uri or f"{self.frontend_url.rstrip('/')}/api/auth/google/callback"
+
+    @property
+    def google_login_configured(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret)
 
     @property
     def google_calendar_configured(self) -> bool:

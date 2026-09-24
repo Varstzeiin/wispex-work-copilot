@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
+if (process.env.VERCEL && !process.env.BACKEND_URL) {
+  // Without it every /api request (sign-in, demo, data) fails on the deployed site
+  console.warn("\n⚠ BACKEND_URL is not set. Set it in Vercel → Settings → Environment Variables to the backend URL.\n");
+}
 const isDev = process.env.NODE_ENV !== "production";
 
 // Next.js needs inline scripts for hydration; 'unsafe-eval' only in development (hot reload)
