@@ -119,3 +119,57 @@ export const INDICATOR_STATUS: Record<string, { label: string; icon: string; sty
   NEEDS_ATTENTION: { label: "Needs attention", icon: "▲", style: "bg-red-50 text-red-800 border-red-200" },
   NO_DATA: { label: "No data yet", icon: "–", style: "bg-slate-50 text-slate-600 border-slate-200" },
 };
+
+// ---------- MVP 3 ----------
+
+export const DOC_TYPE_LABEL: Record<string, string> = {
+  INVOICE: "Commercial Invoice",
+  PACKING_LIST: "Packing List",
+  BILL_OF_LADING: "Bill of Lading",
+  AIR_WAYBILL: "Air Waybill",
+  OTHER: "Other document",
+  UNKNOWN: "Type not set",
+};
+
+export const DOC_FIELD_LABEL: Record<string, string> = {
+  invoice_number: "Invoice number",
+  invoice_date: "Invoice date",
+  document_date: "Document date",
+  seller: "Seller",
+  buyer: "Buyer",
+  consignee: "Consignee",
+  shipment_reference: "Shipment reference",
+  transport_document_number: "BL / AWB number",
+  currency: "Currency",
+  total_value: "Total value",
+  quantity: "Quantity",
+  quantity_unit: "Quantity unit",
+  gross_weight: "Gross weight",
+  net_weight: "Net weight",
+  weight_unit: "Weight unit",
+  product_description: "Product description",
+};
+
+export const PROCESSING_STATUS: Record<string, { label: string; style: string }> = {
+  UPLOADED: { label: "Uploaded", style: "bg-slate-100 text-slate-700" },
+  QUEUED: { label: "Queued", style: "bg-sky-100 text-sky-800" },
+  PROCESSING: { label: "Analysing…", style: "bg-sky-100 text-sky-800" },
+  EXTRACTED: { label: "Ready to verify", style: "bg-emerald-50 text-emerald-800" },
+  NEEDS_REVIEW: { label: "Needs review", style: "bg-amber-100 text-amber-900" },
+  VERIFIED: { label: "Verified", style: "bg-emerald-600 text-white" },
+  FAILED: { label: "Failed", style: "bg-red-100 text-red-800" },
+  AI_NOT_PERMITTED: { label: "Manual entry", style: "bg-slate-100 text-slate-700" },
+};
+
+export const DISCREPANCY_STATUS: Record<string, { label: string; style: string }> = {
+  OPEN: { label: "Open", style: "bg-red-100 text-red-800" },
+  RESOLVED: { label: "Resolved", style: "bg-emerald-100 text-emerald-800" },
+  DISMISSED: { label: "Dismissed", style: "bg-slate-100 text-slate-700" },
+  SUPERSEDED: { label: "Values changed", style: "bg-slate-100 text-slate-700" },
+};
+
+export function confidenceStyle(confidence: number, threshold = 0.85): string {
+  if (confidence >= threshold) return "text-emerald-700";
+  if (confidence >= 0.6) return "text-amber-700";
+  return "text-red-700";
+}

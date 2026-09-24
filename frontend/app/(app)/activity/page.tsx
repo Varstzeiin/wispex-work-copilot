@@ -39,6 +39,19 @@ const ACTION_LABEL: Record<string, string> = {
   SKILL_LEVEL_CHANGED: "Skill level changed",
   DEVELOPMENT_PLAN_UPDATED: "30/60/90 plan updated",
   GOAL_UPDATED: "Development goal updated",
+  DOCUMENT_UPLOADED: "Document uploaded",
+  DOCUMENT_ANALYZED: "Document analysed",
+  DOCUMENT_ANALYSIS_FAILED: "Document analysis failed",
+  DOCUMENT_TYPE_SET: "Document type set",
+  DOCUMENT_VERSION_SELECTED: "Document version chosen",
+  DOCUMENT_VERIFIED: "Document verified",
+  DOCUMENT_DOWNLOADED: "Document downloaded",
+  DOCUMENT_DELETED: "Document deleted",
+  FIELD_VERIFIED: "Document field checked",
+  DISCREPANCY_DETECTED: "Discrepancy detected",
+  DISCREPANCY_RESOLVED: "Discrepancy closed",
+  AI_PERMISSION_CHANGED: "AI document reading changed",
+  CHECKLIST_UPDATED: "Final checklist updated",
 };
 
 function describe(item: AuditItem): string | null {
@@ -73,12 +86,13 @@ export default function ActivityPage() {
             const detail = describe(item);
             const isTask = item.entity === "task" && item.action !== "TASK_DELETED";
             const isError = item.entity === "error";
+            const isDoc = item.entity === "document" && item.action !== "DOCUMENT_DELETED";
             return (
               <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium text-slate-900">
-                    {(isTask || isError) && item.entity_id ? (
-                      <Link href={`/${isTask ? "tasks" : "errors"}/${item.entity_id}`} className="hover:underline">
+                    {(isTask || isError || isDoc) && item.entity_id ? (
+                      <Link href={`/${isTask ? "tasks" : isError ? "errors" : "documents"}/${item.entity_id}`} className="hover:underline">
                         {ACTION_LABEL[item.action] ?? item.action}
                       </Link>
                     ) : (

@@ -372,13 +372,24 @@ def apply_extraction(db: Session, user: User, doc: Document, result) -> None:
 
 
 def _write_fields(db: Session, doc: Document, raw: dict, threshold: float, source: str) -> None:
-    checks = validate_fields(doc.document_type, raw, utcnow().date())
+    """Write (re)extracted values. Values a person verified are never overwritten by a new reading."""
     existing = {f.name: f for f in doc.fields}
+    human = {n for n, f in existing.items() if f.source == "HUMAN" and f.status == "VERIFIED"}
+    merged = dict(raw)
+    for n in human:
+        f = existing[n]
+        merged[n] = {"value": f.value, "normalized": f.normalized, "confidence": 1.0, "evidence": f.evidence}
+    checks = validate_fields(doc.document_type, merged, utcnow().date())
     for i, name in enumerate(FIELD_NAMES):
         c = checks[name]
         f = existing.get(name) or ExtractedField(name=name, position=i)
+        if name in human:
+            # Kept as the person entered it. A new rule (e.g. after a type change) can still flag it.
+            f.rule_messages = c.messages
+            f.status = "NEEDS_REVIEW" if c.messages else "VERIFIED"
+            continue
         f.value, f.normalized, f.confidence, f.source = c.value, c.normalized, c.confidence, source
-        f.evidence = (raw[name].get("evidence") or "")[:300]
+        f.evidence = (merged[name].get("evidence") or "")[:300]
         f.rule_messages = c.messages
         f.status = "NEEDS_REVIEW" if c.needs_review(threshold) else "OK"
         if name not in existing:
@@ -675,13 +686,12 @@ def set_type(db: Session, user: User, doc: Document, document_type: str) -> Docu
     if doc.processing_error.startswith("You marked this as"):
         doc.processing_error = ""
     if doc.fields:
-        raw = {f.name: {"value": f.value, "normalized": f.normalized, "confidence": f.confidence} for f in doc.fields}
-        sources = {f.name: (f.source, f.status) for f in doc.fields}
+        raw = {
+            f.name: {"value": f.value, "normalized": f.normalized, "confidence": f.confidence, "evidence": f.evidence}
+            for f in doc.fields
+        }
+        # Re-check against the new type's rules; human-verified values are kept by _write_fields
         _write_fields(db, doc, raw, get_doc_settings(db, user).review_threshold, source="AI")
-        for f in doc.fields:  # keep human verification
-            if sources[f.name][0] == "HUMAN" and sources[f.name][1] == "VERIFIED" and not f.rule_messages:
-                f.source, f.status = "HUMAN", "VERIFIED"
-        _recompute_status(doc)
     audit_service.log(
         db,
         user.id,

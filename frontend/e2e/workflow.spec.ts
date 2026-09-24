@@ -91,7 +91,12 @@ test("create, progress and complete a task with verification", async ({ page }) 
   await page.getByRole("button", { name: "Complete" }).click();
   const confirm = page.getByRole("button", { name: "Mark as completed" });
   await expect(confirm).toBeDisabled();
-  await page.getByRole("checkbox").check();
+  // Personal final checklist + verification confirmation must all be ticked
+  const boxes = page.getByRole("dialog").getByRole("checkbox");
+  await expect(boxes).toHaveCount(11);
+  for (let i = 0; i < 10; i++) await boxes.nth(i).check();
+  await expect(confirm).toBeDisabled();
+  await boxes.nth(10).check();
   await confirm.click();
   await expect(page.getByText("Completed").first()).toBeVisible();
 
@@ -111,8 +116,8 @@ test("calendar reminder and coming-later pages are honest", async ({ page }) => 
   await expect(page.getByText("WISPEX — SHP-001 Submission Deadline")).toBeVisible();
   await snap(page, "09-calendar");
 
-  await page.goto("/documents");
+  // Features of later phases are labelled honestly instead of showing fake buttons
+  await page.goto("/knowledge");
   await expect(page.getByText(/COMING LATER/)).toBeVisible();
-  await expect(page.getByText("Missing documents across open tasks")).toBeVisible();
-  await snap(page, "10-documents");
+  await snap(page, "10-coming-later");
 });

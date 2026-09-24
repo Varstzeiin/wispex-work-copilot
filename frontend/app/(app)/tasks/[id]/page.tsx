@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { TaskDocuments } from "@/components/document/TaskDocuments";
 import { CalendarReminder } from "@/components/task/CalendarReminder";
 import { Countdown, GuidanceChip, PriorityBadge, StatusBadge } from "@/components/task/badges";
 import { StatusActions } from "@/components/task/StatusActions";
@@ -158,6 +159,7 @@ export default function TaskDetailPage() {
           </Card>
 
           <DocumentChecklist task={task} disabled={closed} />
+          <TaskDocuments task={task} />
           <IssueList task={task} disabled={closed} />
         </div>
 

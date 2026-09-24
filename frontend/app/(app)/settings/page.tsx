@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
 
+import { DocumentSettingsCard } from "@/components/document/DocumentSettingsCard";
 import { Button, Card, ErrorState, Field, InlineError, Modal, PageHeader, SectionTitle, Spinner, inputClass } from "@/components/ui";
 import { useRefreshTaskData } from "@/features/task-management/hooks";
 import { api, errorMessage } from "@/lib/api/client";
@@ -234,6 +235,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
         </div>
       </Card>
 
+      <DocumentSettingsCard />
+
       <Card>
         <SectionTitle>Data and privacy</SectionTitle>
         <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -244,7 +247,8 @@ function SettingsForm({ settings }: { settings: Settings }) {
           </p>
         </div>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-600">
-          <li>Task data is never cached on this device by the app.</li>
+          <li>Task data and documents are never cached on this device by the app.</li>
+          <li>Uploaded files are stored encrypted and are always downloaded, never opened inline.</li>
           <li>Calendar tokens are stored encrypted on the server.</li>
           <li>The activity log records actions and statuses, never document content.</li>
         </ul>
@@ -255,7 +259,7 @@ function SettingsForm({ settings }: { settings: Settings }) {
 
       <Modal open={deleteOpen} title="Delete account" onClose={() => setDeleteOpen(false)}>
         <p className="text-sm text-slate-600">
-          This permanently deletes your account, tasks, settings, calendar links and activity log, and revokes Google
+          This permanently deletes your account, tasks, documents, settings, calendar links and activity log, and revokes Google
           Calendar access. Events already in your Google Calendar stay there. This cannot be undone.
         </p>
         <Field label='Type "DELETE" to confirm' htmlFor="confirm-delete">

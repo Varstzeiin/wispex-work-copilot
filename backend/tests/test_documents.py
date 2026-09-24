@@ -160,6 +160,17 @@ def test_provider_failure_marks_document_failed_with_friendly_message(client):
     assert doc["processing_status"] == "FAILED" and "busy" in doc["processing_error"]
 
 
+def test_reanalysis_never_overwrites_human_verified_values(client):
+    name, data = sample_pdf("invoice")
+    doc_id = upload(client, (name, data), document_type="INVOICE")["results"][0]["document_id"]
+    client.put(f"/api/documents/{doc_id}/fields/quantity", json={"value": "1499"})  # typed by a person
+    allow_ai(client)
+    client.post(f"/api/documents/{doc_id}/reprocess")
+    fields = {f["name"]: f for f in client.get(f"/api/documents/{doc_id}").json()["fields"]}
+    assert fields["quantity"]["value"] == "1499" and fields["quantity"]["status"] == "VERIFIED"
+    assert fields["currency"]["value"] == "EUR" and fields["currency"]["source"] == "AI"  # blanks filled by AI
+
+
 def test_human_numeric_entry_rejects_ambiguous_separators(client):
     name, data = sample_pdf("invoice")
     doc_id = upload(client, (name, data), document_type="INVOICE")["results"][0]["document_id"]

@@ -12,10 +12,11 @@ always shows *why*.
 
 ---
 
-## Status: MVP 1 (Work Management) and MVP 2 (Performance) are complete
+## Status: MVP 1, MVP 2 and MVP 3 are complete
 
-The spec asks for feature-by-feature delivery. MVP 1 and MVP 2 are fully implemented and tested. Later
-phases are visible in the app but clearly labelled **Coming Later**. There are no buttons that pretend to work.
+The spec asks for feature-by-feature delivery. MVP 1 (Work Management), MVP 2 (Performance) and MVP 3
+(Document Intelligence) are implemented and tested. Later phases are visible in the app but clearly
+labelled **Coming Later**. There are no buttons that pretend to work.
 
 | Area | Status |
 |---|---|
@@ -44,7 +45,13 @@ phases are visible in the app but clearly labelled **Coming Later**. There are n
 | **MVP 2:** Learning tracker, feedback log, skill matrix with level history | ✅ Done |
 | **MVP 2:** Personal Reliability Indicators (evidence per indicator, no overall score) | ✅ Done |
 | **MVP 2:** 30 / 60 / 90 day development plan with goals and recorded evidence per phase | ✅ Done |
-| MVP 3 Document intelligence (upload, OCR, extraction, cross-document checks) | ⏳ Coming Later |
+| **MVP 3:** Upload (PDF/JPG/PNG, type from file bytes, SHA-256 duplicate detection, progress + cancel, batch) | ✅ Done |
+| **MVP 3:** Encrypted local storage + Supabase Storage adapter | ✅ Done |
+| **MVP 3:** Claude document reading (vision/PDF, structured JSON output, background processing) | ✅ Built, **Integration Required** (needs `AI_PROVIDER=anthropic` + API key + user confirmation) |
+| **MVP 3:** Per-field confidence, deterministic validation rules, manual review queue | ✅ Done |
+| **MVP 3:** Cross-document comparison and discrepancy workflow (linked to task issues) | ✅ Done |
+| **MVP 3:** Document versions (never "newest wins") with change view | ✅ Done |
+| **MVP 3:** Configurable final checklist required before completing a task | ✅ Done |
 | MVP 4 AI copilot (knowledge/RAG, “I'm not sure”, drafting) | ⏳ Coming Later |
 | MVP 5 Advanced automation | ⏳ Coming Later |
 
@@ -131,6 +138,38 @@ All weights and deadline thresholds are **personal settings, never presented as 
 - **30 / 60 / 90**: Understanding, Consistency, Independence and reliability. Default goals can be
   ticked with written evidence, and each phase shows the work actually recorded in that period.
 
+### MVP 3: document intelligence
+
+```text
+UPLOAD → FILE VALIDATION → ENCRYPTED STORAGE → (if permitted) CLAUDE: CLASSIFY + EXTRACT
+→ CONFIDENCE SCORING → DETERMINISTIC RULES → CROSS-DOCUMENT CHECK → DISCREPANCIES → HUMAN REVIEW
+```
+
+- **Nothing is sent to an AI provider unless** the server has one configured (`AI_PROVIDER=anthropic`)
+  **and** the user confirmed in Settings that their organization permits it. Demo accounts never send
+  uploads to AI. Without AI, documents are stored and the same fields are entered by hand.
+- **Claude adapter** (`app/ai/claude_provider.py`): `claude-opus-5` by default (`AI_MODEL`), the PDF or
+  image is sent as a document/image block, and the answer is constrained to a JSON schema
+  (`output_config.format`). Server-side `fallbacks: "default"` handles safety-classifier refusals;
+  a remaining refusal, truncation or malformed output never becomes data: the document goes to review.
+  The prompt tells the model to treat document text as data and ignore instructions inside it.
+- The rest of the app only talks to the `AIProvider` interface (`app/ai/provider.py`), so the vendor or
+  model can change. `AI_PROVIDER=fake` is a deterministic stand-in for development and tests and is
+  refused in production.
+- **Deterministic rules** (`app/rules/document_rules.py`) check required fields per document type,
+  numbers, dates, ISO currency codes, weight units and net ≤ gross. Fields below your confidence
+  threshold or failing a rule go to the **review queue**. A person confirms or corrects each value; values
+  a person verified are never overwritten by a later AI reading.
+- **Cross-document check** (`app/rules/discrepancy_rules.py`) compares quantity, net/gross weight (with
+  unit conversion and an optional personal tolerance), invoice number, description, consignee and
+  shipment reference across Invoice, Packing List and BL/AWB. Each potential mismatch shows both values,
+  the difference, confidence, impact and a neutral recommended action. **It never says which document is
+  correct.** Mismatches are added to the linked task as issues (which blocks completion) and closing one
+  requires a written note.
+- **Versions**: when a second version of a document type arrives for a shipment, no version is active
+  until the user chooses one. Changes between versions are shown field by field.
+- **Fictional sample PDFs** can be downloaded on the upload page to try the whole flow.
+
 ### Safeguards that are enforced, not just displayed
 
 - A task cannot be completed while required documents are missing or issues are open.
@@ -138,6 +177,8 @@ All weights and deadline thresholds are **personal settings, never presented as 
 - Resolving an issue requires writing down how it was resolved (added to the notes with a timestamp).
 - Escalating or holding requires a note (who / why).
 - Error reports follow the workflow in order and cannot be deleted.
+- Completing a task requires every item of the personal final checklist (editable in Settings).
+- Documents go to an AI provider only with server configuration **and** the user's explicit confirmation.
 - The app never decides which document is correct.
 - Work is never reassigned automatically. Messages are never sent automatically.
 
@@ -170,12 +211,14 @@ To test the PWA install flow and the service worker, use a production build: `np
 ### Running the tests
 
 ```bash
-cd backend && pytest -q                 # 62 tests: rules, priority, planner, auth, authorization, tasks, calendar
-                                        # (mocked Google), error workflow, analytics, reviews, learning, growth
+cd backend && pytest -q                 # 85 tests: rules, priority, planner, auth, authorization, tasks, calendar
+                                        # (mocked Google), error workflow, reviews, learning, growth, documents,
+                                        # Claude adapter (stub client), Supabase adapter (mocked HTTP)
 cd frontend && npm test                 # unit tests (countdown, timezone conversion)
 cd frontend && npm run lint && npm run typecheck
 
-# End-to-end (mobile + desktop viewports). Start backend and `npm run build && npm start` first.
+# End-to-end (mobile + desktop viewports). Start the backend with AI_PROVIDER=fake and
+# `npm run build && npm start` first.
 cd frontend && npx playwright test
 ```
 
@@ -197,6 +240,9 @@ Nothing secret is ever sent to the browser.
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | backend | Enables Google Calendar sync |
 | `FRONTEND_URL` | backend | Where the OAuth callback redirects back to |
 | `DEMO_MODE_ENABLED` | backend | Set `false` in production if demo accounts are not wanted |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | `anthropic` enables Claude document reading. Key falls back to `ANTHROPIC_API_KEY` |
+| `STORAGE_BACKEND` / `STORAGE_DIR` | backend | `local` (encrypted files) or `supabase` |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` | backend | Private Supabase Storage bucket (server side only) |
 | `BACKEND_URL` | frontend (server only) | Where Next.js forwards `/api/*` |
 
 The default timezone is `Asia/Jakarta`. Each user can change timezone and shift in Settings.
@@ -257,5 +303,9 @@ the app refuses to start with development secrets.
   schema change.
 - The rate limiter is in-memory (single instance). Use Redis when running several instances.
 - Google sign-in for the app itself is not implemented yet (Google is used only for Calendar).
-- MVP 3 will need object storage (Supabase Storage) and a background worker (e.g. RQ + Redis) for
-  document processing. Neither is required for MVP 1.
+- Document processing runs in FastAPI background tasks inside the API process. That is fine for one
+  server; for several servers or heavy volume, move it to a queue worker (e.g. RQ + Redis).
+- Malware scanning of uploads is not included. Files are never executed or rendered by the server and are
+  always downloaded as attachments, but add a scanner before accepting files from untrusted sources.
+- The Claude integration is covered by tests with a stub client. It has not been run against the live
+  API in this repository's CI, because that needs a real key and sends data to a provider.
