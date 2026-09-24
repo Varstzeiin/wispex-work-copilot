@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
 from app.core.database import Base, engine  # noqa: E402
-from app.core.security import ai_rate_limiter, auth_rate_limiter, demo_rate_limiter  # noqa: E402
+from app.core.security import ai_rate_limiter, auth_rate_limiter, demo_rate_limiter, send_rate_limiter  # noqa: E402
 from app.main import app  # noqa: E402
 
 CSRF = {"X-Requested-With": "wispex"}
@@ -39,11 +39,15 @@ def fresh_db(tmp_path):
     from app.ai import embeddings
 
     embeddings.reset()  # keyword search only unless a test injects an embedder
+    from app.integrations.outbound import set_outbound
+
+    set_outbound(None, None)  # no real email or webhook in tests
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     auth_rate_limiter.reset()
     demo_rate_limiter.reset()
     ai_rate_limiter.reset()
+    send_rate_limiter.reset()
     get_settings.cache_clear()
     yield
 
