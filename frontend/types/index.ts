@@ -544,3 +544,164 @@ export interface UploadResult {
   results: { filename: string; status: "UPLOADED" | "DUPLICATE" | "REJECTED"; document_id?: string; message?: string }[];
   queued: number;
 }
+
+// ---------- MVP 4: AI copilot ----------
+
+export type KnowledgeCategory =
+  | "TRAINING"
+  | "SOP_REFERENCE"
+  | "DOCUMENT_EXPLANATION"
+  | "TERMINOLOGY"
+  | "RESOLVED_QUESTION"
+  | "LESSON"
+  | "COMMON_MISTAKE"
+  | "PROCEDURE"
+  | "SENIOR_NOTE";
+
+export interface KnowledgeNote {
+  id: string;
+  title: string;
+  body: string;
+  category: KnowledgeCategory;
+  origin_label: string;
+  source_label: string;
+  verified: boolean;
+  tags: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeResult {
+  kind: "NOTE" | "LEARNING" | "CLARIFICATION" | "ERROR";
+  id: string;
+  title: string;
+  snippet: string;
+  origin: string;
+  origin_label: string;
+  source_label: string;
+  verified: boolean;
+  category: string;
+  coverage: number;
+  score: number;
+}
+
+export type KnowledgeListResponse =
+  | { mode: "list"; items: KnowledgeNote[] }
+  | { mode: "search"; results: KnowledgeResult[]; message: string };
+
+export interface AssistantStatus {
+  ai_configured: boolean;
+  ai_provider: string | null;
+  ai_model: string | null;
+  ai_allowed: boolean;
+  ai_permission_confirmed: boolean;
+  is_demo: boolean;
+  knowledge_notes: number;
+}
+
+export interface AskResult {
+  question: string;
+  status: "NO_SOURCE" | "SOURCES_ONLY" | "NOT_ANSWERED" | "ANSWERED";
+  message: string;
+  answer: string;
+  used_source_ids: string[];
+  ai_used: boolean;
+  sources: KnowledgeResult[];
+}
+
+export interface TaskContext {
+  task_id: string | null;
+  shipment_reference: string;
+  client_name: string;
+  status: string;
+  status_label: string;
+  deadline: DeadlineInfo | null;
+  deadline_sentence: string;
+  missing_documents: string[];
+  available_documents: string[];
+  discrepancies: {
+    id: string;
+    field: string;
+    field_label: string;
+    document_a: string;
+    document_b: string;
+    value_a: string;
+    value_b: string;
+    difference: string;
+  }[];
+  low_confidence_fields: { field: string; document: string; confidence: number }[];
+  open_issues: number;
+}
+
+export interface UnsureResult {
+  context: TaskContext;
+  knowledge: KnowledgeResult[];
+  knowledge_message: string;
+  assessment: {
+    recommendation: "VERIFY" | "ASK" | "ESCALATE";
+    headline: string;
+    triggers: { key: string; label: string }[];
+    steps: { key: string; label: string; done: boolean; note?: string }[];
+  };
+  draft: { parts: Record<string, string>; text: string };
+}
+
+export interface Clarification {
+  id: string;
+  task_id: string | null;
+  shipment_reference: string;
+  kind: "QUESTION" | "ESCALATION";
+  field_name: string;
+  issue: string;
+  evidence: string;
+  question: string;
+  asked_to: string;
+  status: "OPEN" | "ANSWERED" | "CANCELLED";
+  answer: string;
+  answered_at: string | null;
+  knowledge_note_id: string | null;
+  created_at: string;
+}
+
+export type DraftKind = "CLARIFICATION" | "MISSING_DOCUMENT" | "DISCREPANCY" | "ESCALATION" | "CORRECTION" | "STATUS_UPDATE";
+
+export interface GeneratedDraft {
+  kind: DraftKind;
+  task_id: string | null;
+  shipment_reference: string;
+  subject: string;
+  body: string;
+  parts: Record<string, string>;
+}
+
+export interface CommunicationDraft {
+  id: string;
+  task_id: string | null;
+  shipment_reference: string;
+  kind: DraftKind;
+  kind_label: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  status: "DRAFT" | "SENT_MANUALLY";
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RewriteResult {
+  text: string;
+  changed: boolean;
+  kept_original: boolean;
+  message: string;
+}
+
+export interface AssistantInsights {
+  days: number;
+  total: number;
+  open: number;
+  insights: string[];
+  patterns: { kind: string; key: string; count: number; message: string }[];
+  suggestions: { key: string; count: number; message: string; item: string }[];
+  note: string;
+}

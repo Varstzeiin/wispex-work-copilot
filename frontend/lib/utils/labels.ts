@@ -173,3 +173,32 @@ export function confidenceStyle(confidence: number, threshold = 0.85): string {
   if (confidence >= 0.6) return "text-amber-700";
   return "text-red-700";
 }
+
+// ---------- MVP 4 ----------
+
+export const KNOWLEDGE_CATEGORY_LABEL: Record<string, string> = {
+  TRAINING: "Training note",
+  SOP_REFERENCE: "SOP reference",
+  DOCUMENT_EXPLANATION: "Document explanation",
+  TERMINOLOGY: "Terminology",
+  RESOLVED_QUESTION: "Resolved question",
+  LESSON: "Personal lesson",
+  COMMON_MISTAKE: "Common mistake",
+  PROCEDURE: "Useful procedure",
+  SENIOR_NOTE: "Senior / team note",
+};
+
+export const DRAFT_KIND_LABEL: Record<string, string> = {
+  CLARIFICATION: "Clarification request",
+  MISSING_DOCUMENT: "Missing documents",
+  DISCREPANCY: "Document discrepancy",
+  ESCALATION: "Escalation",
+  CORRECTION: "Correction notification",
+  STATUS_UPDATE: "Status update",
+};
+
+export const RECOMMENDATION_STYLE: Record<string, { label: string; style: string }> = {
+  VERIFY: { label: "Verify first", style: "border-emerald-200 bg-emerald-50 text-emerald-900" },
+  ASK: { label: "Ask a precise question", style: "border-amber-200 bg-amber-50 text-amber-900" },
+  ESCALATE: { label: "Consider escalating", style: "border-red-200 bg-red-50 text-red-900" },
+};

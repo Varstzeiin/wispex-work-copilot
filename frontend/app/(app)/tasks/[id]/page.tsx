@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, CalendarClock, Crosshair, FileText, Pencil, Plane, Ship, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CalendarClock, Crosshair, FileText, Mail, Pencil, Plane, ShieldQuestion, Ship, Trash2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { ClarificationList } from "@/components/assistant/ClarificationList";
 import { TaskDocuments } from "@/components/document/TaskDocuments";
 import { CalendarReminder } from "@/components/task/CalendarReminder";
 import { Countdown, GuidanceChip, PriorityBadge, StatusBadge } from "@/components/task/badges";
@@ -156,6 +157,19 @@ export default function TaskDetailPage() {
                 <Crosshair className="h-4 w-4" aria-hidden /> Open in Focus mode
               </LinkButton>
             )}
+            {!closed && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <LinkButton href={`/assistant/unsure?task=${task.id}`}>
+                  <ShieldQuestion className="h-4 w-4" aria-hidden /> I&apos;m not sure
+                </LinkButton>
+                <LinkButton href={`/assistant/drafts?task=${task.id}`}>
+                  <Mail className="h-4 w-4" aria-hidden /> Draft message
+                </LinkButton>
+              </div>
+            )}
+            <div className="mt-3">
+              <ClarificationList taskId={task.id} compact />
+            </div>
           </Card>
 
           <DocumentChecklist task={task} disabled={closed} />

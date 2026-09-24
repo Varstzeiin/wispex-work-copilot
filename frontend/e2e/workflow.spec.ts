@@ -104,7 +104,7 @@ test("create, progress and complete a task with verification", async ({ page }) 
   await expect(page.getByText("Task completed").first()).toBeVisible();
 });
 
-test("calendar reminder and coming-later pages are honest", async ({ page }) => {
+test("calendar reminder is honest about the missing integration", async ({ page }) => {
   await startDemo(page);
   await page.goto("/tasks?level=CRITICAL");
   await page.getByRole("link", { name: /SHP-001/ }).click();
@@ -115,9 +115,4 @@ test("calendar reminder and coming-later pages are honest", async ({ page }) => 
   await expect(page.getByText("Integration Required")).toBeVisible();
   await expect(page.getByText("WISPEX — SHP-001 Submission Deadline")).toBeVisible();
   await snap(page, "09-calendar");
-
-  // Features of later phases are labelled honestly instead of showing fake buttons
-  await page.goto("/knowledge");
-  await expect(page.getByText(/COMING LATER/)).toBeVisible();
-  await snap(page, "10-coming-later");
 });

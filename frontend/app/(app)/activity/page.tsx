@@ -52,6 +52,19 @@ const ACTION_LABEL: Record<string, string> = {
   DISCREPANCY_RESOLVED: "Discrepancy closed",
   AI_PERMISSION_CHANGED: "AI document reading changed",
   CHECKLIST_UPDATED: "Final checklist updated",
+  KNOWLEDGE_NOTE_CREATED: "Knowledge note added",
+  KNOWLEDGE_NOTE_UPDATED: "Knowledge note updated",
+  KNOWLEDGE_NOTE_DELETED: "Knowledge note deleted",
+  KNOWLEDGE_ANSWER_GENERATED: "Knowledge answer generated",
+  CLARIFICATION_CREATED: "Clarification created",
+  ESCALATION_CREATED: "Escalation created",
+  CLARIFICATION_ANSWERED: "Answer recorded",
+  CLARIFICATION_CANCELLED: "Question closed",
+  MESSAGE_DRAFTED: "Message drafted",
+  MESSAGE_MARKED_SENT: "Message sent by you",
+  MESSAGE_REWRITTEN: "Draft reworded with AI",
+  DRAFT_DELETED: "Draft deleted",
+  AI_ASSIST_PERMISSION_CHANGED: "AI writing help changed",
 };
 
 function describe(item: AuditItem): string | null {
