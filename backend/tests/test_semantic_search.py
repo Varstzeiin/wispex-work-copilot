@@ -147,3 +147,42 @@ def test_real_model_finds_paraphrases(client):
     assert search(client, "does the heavier figure include the boxes?")[0]["title"] == "Gross weight vs net weight"
     assert search(client, "the photo is blurry and I cannot read the value")[0]["title"] == "Unclear scan"
     assert search(client, "what time is lunch") == []
+
+
+def test_model_is_loaded_at_start_up_before_requests(monkeypatch):
+    """Loading mid-traffic froze the server for seconds once, so the lifespan loads it first."""
+    from fastapi.testclient import TestClient
+
+    from app.core.config import get_settings
+    from app.main import app
+
+    monkeypatch.setenv("SEMANTIC_SEARCH", "local")
+    get_settings.cache_clear()
+    monkeypatch.setattr(embeddings, "FastEmbedEmbedder", lambda *a, **k: ConceptEmbedder())
+    embeddings.reset()
+    with TestClient(app, headers={"X-Requested-With": "wispex"}) as c:
+        # Ready before the first request, without any search having triggered it
+        assert embeddings.status() == "READY"
+        c.post("/api/demo/start")
+        assert c.get("/api/assistant/status").json()["semantic_search"] == "READY"
+    get_settings.cache_clear()
+
+
+def test_failed_start_up_load_falls_back_to_keywords(monkeypatch):
+    from app.core.config import get_settings
+
+    def broken(*a, **k):
+        raise OSError("model files missing")
+
+    monkeypatch.setenv("SEMANTIC_SEARCH", "local")
+    get_settings.cache_clear()
+    monkeypatch.setattr(embeddings, "FastEmbedEmbedder", broken)
+    embeddings.reset()
+    embeddings.preload()  # never raises: the server must still start
+    assert embeddings.status() == "UNAVAILABLE" and embeddings.get_embedder() is None
+    monkeypatch.setenv("SEMANTIC_SEARCH", "off")
+    get_settings.cache_clear()
+    embeddings.reset()
+    embeddings.preload()
+    assert embeddings.status() == "OFF"
+    get_settings.cache_clear()
