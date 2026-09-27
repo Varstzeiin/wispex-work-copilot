@@ -1,6 +1,7 @@
-tests/
-models/
-storage/
-.venv/
+# Leading "/" = only at the top of backend/. Without it, "models/" would also drop app/models/.
+/tests/
+/models/
+/storage/
+/.venv/
 *.db
 __pycache__/

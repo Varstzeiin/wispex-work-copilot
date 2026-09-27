@@ -113,3 +113,14 @@ def test_vercel_dependencies_match_requirements():
     project = tomllib.loads((root / "pyproject.toml").read_text())
     assert set(project["project"]["dependencies"]) == listed  # update both files together
     assert project["tool"]["vercel"]["entrypoint"] == "index:app"
+
+
+def test_vercelignore_keeps_all_app_code():
+    """An unanchored pattern like "models/" also drops app/models/ from the Vercel upload."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    patterns = [p.strip() for p in (root / ".vercelignore").read_text().splitlines()]
+    unanchored = {p.rstrip("/") for p in patterns if p.endswith("/") and not p.startswith(("/", "#"))}
+    code_dirs = {d.name for d in (root / "app").rglob("*") if d.is_dir() and d.name != "__pycache__"}
+    assert not unanchored & code_dirs, f"these patterns would drop app code: {unanchored & code_dirs}"
