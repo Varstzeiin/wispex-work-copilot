@@ -9,6 +9,7 @@ import { taskApi, useRefreshTaskData } from "@/features/task-management/hooks";
 import { errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
 import { STATUS_LABEL } from "@/lib/utils/labels";
+import { t } from "@/lib/i18n";
 import type { Task, TaskStatus } from "@/types";
 
 interface Action {
@@ -20,39 +21,42 @@ interface Action {
 }
 
 function actionsFor(status: TaskStatus): Action[] {
-  const start: Action = { to: "IN_PROGRESS", label: "Start task", icon: Play, primary: true };
-  const resume: Action = { to: "IN_PROGRESS", label: "Resume", icon: Play, primary: true };
-  const complete: Action = { to: "COMPLETED", label: "Complete", icon: CheckCircle2, primary: true };
-  const review: Action = { to: "NEEDS_REVIEW", label: "Needs review", icon: Eye };
-  const waiting: Action = { to: "WAITING", label: "Waiting", icon: Timer };
-  const escalate: Action = { to: "ESCALATED", label: "Escalate", icon: ShieldAlert, danger: true };
-  const hold: Action = { to: "ON_HOLD", label: "Hold", icon: Pause };
+  const start: Action = { to: "IN_PROGRESS", label: t("Start task", "Mulai task"), icon: Play, primary: true };
+  const resume: Action = { to: "IN_PROGRESS", label: t("Resume", "Lanjutkan"), icon: Play, primary: true };
+  const complete: Action = { to: "COMPLETED", label: t("Complete", "Selesaikan"), icon: CheckCircle2, primary: true };
+  const review: Action = { to: "NEEDS_REVIEW", label: t("Needs review", "Perlu dicek"), icon: Eye };
+  const waiting: Action = { to: "WAITING", label: t("Waiting", "Menunggu"), icon: Timer };
+  const escalate: Action = { to: "ESCALATED", label: t("Escalate", "Eskalasi"), icon: ShieldAlert, danger: true };
+  const hold: Action = { to: "ON_HOLD", label: t("Hold", "Tahan"), icon: Pause };
   switch (status) {
     case "NEW":
       return [start, waiting, escalate, hold];
     case "IN_PROGRESS":
       return [complete, review, waiting, escalate, hold];
     case "NEEDS_REVIEW":
-      return [complete, { ...resume, label: "Back to in progress", primary: false }, waiting, escalate];
+      return [complete, { ...resume, label: t("Back to in progress", "Kembali dikerjakan"), primary: false }, waiting, escalate];
     case "WAITING":
       return [resume, escalate, hold];
     case "ESCALATED":
-      return [{ ...resume, label: "Resume (guidance received)" }, hold];
+      return [{ ...resume, label: t("Resume (guidance received)", "Lanjutkan (arahan sudah diterima)") }, hold];
     case "ON_HOLD":
       return [resume];
     default:
-      return [{ to: "IN_PROGRESS", label: "Reopen", icon: RotateCcw }];
+      return [{ to: "IN_PROGRESS", label: t("Reopen", "Buka lagi"), icon: RotateCcw }];
   }
 }
 
-const NOTE_PROMPT: Partial<Record<TaskStatus, string>> = {
-  ESCALATED: "Who did you escalate to, and what exactly is unresolved?",
-  WAITING: "What are you waiting for, and from whom?",
-  ON_HOLD: "Why is this on hold? Who asked for it?",
-  IN_PROGRESS: "Optional note",
-  NEEDS_REVIEW: "What needs review?",
-  CANCELLED: "Why is this task cancelled?",
-};
+function notePrompt(status: TaskStatus): string {
+  const prompts: Partial<Record<TaskStatus, string>> = {
+    ESCALATED: t("Who did you escalate to, and what exactly is unresolved?", "Eskalasi ke siapa, dan apa persisnya yang belum selesai?"),
+    WAITING: t("What are you waiting for, and from whom?", "Menunggu apa, dan dari siapa?"),
+    ON_HOLD: t("Why is this on hold? Who asked for it?", "Kenapa ditahan? Siapa yang meminta?"),
+    IN_PROGRESS: t("Optional note", "Catatan (opsional)"),
+    NEEDS_REVIEW: t("What needs review?", "Apa yang perlu dicek?"),
+    CANCELLED: t("Why is this task cancelled?", "Kenapa task ini dibatalkan?"),
+  };
+  return prompts[status] ?? t("Note", "Catatan");
+}
 
 export function StatusActions({ task }: { task: Task }) {
   const refresh = useRefreshTaskData();
@@ -108,8 +112,8 @@ export function StatusActions({ task }: { task: Task }) {
 
   const noteRequired = target === "ESCALATED" || target === "ON_HOLD" || target === "CANCELLED";
   const blockers = [
-    ...(task.missing_documents.length ? [`Missing: ${task.missing_documents.join(", ")}`] : []),
-    ...(task.open_issue_count ? [`${task.open_issue_count} open issue(s)`] : []),
+    ...(task.missing_documents.length ? [`${t("Missing", "Kurang")}: ${task.missing_documents.join(", ")}`] : []),
+    ...(task.open_issue_count ? [`${task.open_issue_count} ${t("open issue(s)", "masalah terbuka")}`] : []),
   ];
 
   return (
@@ -134,32 +138,37 @@ export function StatusActions({ task }: { task: Task }) {
         })}
         {!closed && (
           <Button variant="ghost" size="lg" disabled={!online} onClick={() => open("CANCELLED")}>
-            <XCircle className="h-4 w-4" aria-hidden /> Cancel task
+            <XCircle className="h-4 w-4" aria-hidden /> {t("Cancel task", "Batalkan task")}
           </Button>
         )}
       </div>
       {!target && <div className="mt-2"><InlineError message={error} /></div>}
 
-      <Modal open={target !== null} title={target === "COMPLETED" ? "Complete task" : `Mark as ${target ? STATUS_LABEL[target].toLowerCase() : ""}`} onClose={() => setTarget(null)}>
+      <Modal open={target !== null} title={target === "COMPLETED" ? t("Complete task", "Selesaikan task") : `${t("Mark as", "Tandai sebagai")} ${target ? STATUS_LABEL[target].toLowerCase() : ""}`} onClose={() => setTarget(null)}>
         <div className="space-y-3">
           {target === "COMPLETED" && (
             <>
               {blockers.length > 0 ? (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-                  <p className="font-semibold">This task cannot be completed yet</p>
+                  <p className="font-semibold">{t("This task cannot be completed yet", "Task ini belum bisa diselesaikan")}</p>
                   <ul className="mt-1 list-disc pl-5">
                     {blockers.map((b) => (
                       <li key={b}>{b}</li>
                     ))}
                   </ul>
-                  <p className="mt-1 text-xs">Resolve them first, or record the instruction you received on the issue.</p>
+                  <p className="mt-1 text-xs">
+                    {t(
+                      "Resolve them first, or record the instruction you received on the issue.",
+                      "Selesaikan dulu, atau catat arahan yang kamu terima di masalah tersebut.",
+                    )}
+                  </p>
                 </div>
               ) : (
                 <>
                 {checklist.length > 0 && (
                   <fieldset className="rounded-xl border border-slate-200 p-3">
                     <legend className="px-1 text-sm font-semibold text-slate-700">
-                      Final checklist ({ticked.length}/{checklist.length})
+                      {t("Final checklist", "Checklist akhir")} ({ticked.length}/{checklist.length})
                     </legend>
                     <ul className="space-y-1.5">
                       {checklist.map((item) => (
@@ -178,7 +187,12 @@ export function StatusActions({ task }: { task: Task }) {
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-2 text-xs text-slate-500">Your personal checklist (Settings). It does not replace official SOP.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {t(
+                        "Your personal checklist (Settings). It does not replace official SOP.",
+                        "Checklist pribadi kamu (Pengaturan). Tidak menggantikan SOP resmi.",
+                      )}
+                    </p>
                   </fieldset>
                 )}
                 <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm">
@@ -189,8 +203,10 @@ export function StatusActions({ task }: { task: Task }) {
                     onChange={(e) => setVerified(e.target.checked)}
                   />
                   <span>
-                    I verified the documents and data for this task against the source documents. I am not submitting
-                    anything I am unsure about.
+                    {t(
+                      "I verified the documents and data for this task against the source documents. I am not submitting anything I am unsure about.",
+                      "Aku sudah memverifikasi dokumen dan data task ini dengan dokumen sumber. Aku tidak mengirim apa pun yang masih ragu.",
+                    )}
                   </span>
                 </label>
                 </>
@@ -199,12 +215,18 @@ export function StatusActions({ task }: { task: Task }) {
           )}
           {target === "ESCALATED" && (
             <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-              Before escalating: verify, check documentation and alternatives. Escalate when it is still unresolved,
-              documents conflict, or the deadline is at risk. Follow the applicable SOP.
+              {t(
+                "Before escalating: verify, check documentation and alternatives. Escalate when it is still unresolved, documents conflict, or the deadline is at risk. Follow the applicable SOP.",
+                "Sebelum eskalasi: verifikasi, cek dokumentasi dan alternatif. Eskalasi kalau masih belum selesai, dokumen saling bertentangan, atau deadline berisiko. Ikuti SOP yang berlaku.",
+              )}
             </p>
           )}
           {target !== "COMPLETED" && (
-            <Field label={NOTE_PROMPT[target ?? "IN_PROGRESS"] ?? "Note"} htmlFor="status-note" hint="Saved in the task notes with a timestamp.">
+            <Field
+              label={notePrompt(target ?? "IN_PROGRESS")}
+              htmlFor="status-note"
+              hint={t("Saved in the task notes with a timestamp.", "Disimpan di catatan task beserta waktunya.")}
+            >
               <textarea id="status-note" rows={3} className={inputClass} value={note} onChange={(e) => setNote(e.target.value)} />
             </Field>
           )}
@@ -221,7 +243,7 @@ export function StatusActions({ task }: { task: Task }) {
             }
             onClick={confirm}
           >
-            {target === "COMPLETED" ? "Mark as completed" : "Confirm"}
+            {target === "COMPLETED" ? t("Mark as completed", "Tandai selesai") : t("Confirm", "Konfirmasi")}
           </Button>
         </div>
       </Modal>

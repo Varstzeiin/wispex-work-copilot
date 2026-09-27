@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { Countdown, GuidanceChip, PriorityBadge, StatusBadge } from "@/components/task/badges";
 import { formatDateTime } from "@/lib/utils/time";
+import { t } from "@/lib/i18n";
 import type { Task } from "@/types";
 
 const BORDER: Record<string, string> = {
@@ -54,13 +55,13 @@ export function TaskCard({ task, timeZone, extra }: { task: Task; timeZone: stri
         </span>
         {task.required_documents.length > 0 && (
           <span className={clsx("inline-flex items-center gap-1", task.missing_documents.length && "font-semibold text-orange-700")}>
-            <FileText className="h-3.5 w-3.5" aria-hidden /> Docs {docsDone}/{task.required_documents.length}
+            <FileText className="h-3.5 w-3.5" aria-hidden /> {t("Docs", "Dok")} {docsDone}/{task.required_documents.length}
           </span>
         )}
         {task.open_issue_count > 0 && (
           <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
-            <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> {task.open_issue_count} issue
-            {task.open_issue_count > 1 ? "s" : ""}
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> {task.open_issue_count}{" "}
+            {t(task.open_issue_count > 1 ? "issues" : "issue", "masalah")}
           </span>
         )}
         <span>~{task.estimated_minutes}m</span>

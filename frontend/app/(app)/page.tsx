@@ -14,6 +14,7 @@ import { useAlerts, usePlan } from "@/features/daily-planner/hooks";
 import { errorMessage } from "@/lib/api/client";
 import { useMe, useNow, useSettings } from "@/lib/hooks";
 import { formatFullDate, formatMinutes, formatTime } from "@/lib/utils/time";
+import { t } from "@/lib/i18n";
 
 export default function DashboardPage() {
   return (
@@ -34,10 +35,10 @@ function Dashboard() {
   const firstName = user?.full_name?.split(" ")[0];
   const stats = plan
     ? [
-        { label: "Critical", value: plan.counts.critical, href: "/tasks?level=CRITICAL", tone: "text-red-700" },
-        { label: "High", value: plan.counts.high, href: "/tasks?level=HIGH", tone: "text-orange-600" },
-        { label: "Overdue", value: plan.counts.overdue, href: "/tasks?sort=deadline", tone: "text-red-800" },
-        { label: "Waiting", value: plan.counts.blocked, href: "/tasks?status=WAITING,ESCALATED,ON_HOLD", tone: "text-slate-700" },
+        { label: t("Critical", "Kritis"), value: plan.counts.critical, href: "/tasks?level=CRITICAL", tone: "text-red-700" },
+        { label: t("High", "Tinggi"), value: plan.counts.high, href: "/tasks?level=HIGH", tone: "text-orange-600" },
+        { label: t("Overdue", "Terlambat"), value: plan.counts.overdue, href: "/tasks?sort=deadline", tone: "text-red-800" },
+        { label: t("Waiting", "Menunggu"), value: plan.counts.blocked, href: "/tasks?status=WAITING,ESCALATED,ON_HOLD", tone: "text-slate-700" },
       ]
     : [];
 
@@ -46,19 +47,22 @@ function Dashboard() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm text-slate-500">{formatFullDate(new Date(now), timezone)}</p>
-          <h1 className="text-2xl font-bold text-slate-900">{firstName ? `Hi ${firstName}` : "Today"}</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{firstName ? `${t("Hi", "Halo")} ${firstName}` : t("Today", "Hari ini")}</h1>
           {plan && (
             <p className="mt-0.5 text-sm text-slate-500">
               {plan.shift.status === "ON_SHIFT"
-                ? `On shift until ${formatTime(plan.shift.end, timezone)} · ${formatMinutes(plan.shift.available_minutes)} left`
+                ? t(
+                    `On shift until ${formatTime(plan.shift.end, timezone)} · ${formatMinutes(plan.shift.available_minutes)} left`,
+                    `Shift sampai ${formatTime(plan.shift.end, timezone)} · sisa ${formatMinutes(plan.shift.available_minutes)}`,
+                  )
                 : plan.shift.status === "BEFORE_SHIFT"
-                  ? `Shift starts ${formatTime(plan.shift.start, timezone)}`
-                  : "Shift ended for today"}
+                  ? t(`Shift starts ${formatTime(plan.shift.start, timezone)}`, `Shift mulai ${formatTime(plan.shift.start, timezone)}`)
+                  : t("Shift ended for today", "Shift hari ini sudah selesai")}
             </p>
           )}
         </div>
         <LinkButton href="/tasks/new" variant="primary" className="shrink-0">
-          <Plus className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">New task</span>
+          <Plus className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">{t("New task", "Task baru")}</span>
         </LinkButton>
       </header>
 
@@ -81,7 +85,7 @@ function Dashboard() {
           <Card>
             <p className="text-sm leading-relaxed text-slate-700">{plan.summary}</p>
             <Link href="/planner" className="mt-2 inline-flex items-center text-sm font-semibold text-brand-700">
-              Open daily plan <ChevronRight className="h-4 w-4" aria-hidden />
+              {t("Open daily plan", "Buka rencana harian")} <ChevronRight className="h-4 w-4" aria-hidden />
             </Link>
           </Card>
 
@@ -100,9 +104,11 @@ function Dashboard() {
               >
                 <NotebookPen className="h-5 w-5 shrink-0 text-brand-700" aria-hidden />
                 <span className="flex-1">
-                  <span className="font-semibold text-slate-900">End-of-shift review</span>
+                  <span className="font-semibold text-slate-900">{t("End-of-shift review", "Refleksi akhir shift")}</span>
                   <span className="block text-slate-600">
-                    {endingSoon ? "Your shift is ending. Take two minutes to review today." : "See today's numbers and write a short reflection."}
+                    {endingSoon
+                      ? t("Your shift is ending. Take two minutes to review today.", "Shift kamu hampir selesai. Luangkan dua menit untuk meninjau hari ini.")
+                      : t("See today's numbers and write a short reflection.", "Lihat angka hari ini dan tulis refleksi singkat.")}
                   </span>
                 </span>
                 <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
@@ -112,7 +118,7 @@ function Dashboard() {
 
           {alerts && alerts.alerts.length > 0 && (
             <section>
-              <SectionTitle>Deadline alerts</SectionTitle>
+              <SectionTitle>{t("Deadline alerts", "Peringatan deadline")}</SectionTitle>
               <ul className="space-y-2">
                 {alerts.alerts.slice(0, 5).map((a) => (
                   <li key={`${a.task_id}-${a.kind}`}>
@@ -138,18 +144,18 @@ function Dashboard() {
             <SectionTitle
               action={
                 <Link href="/tasks" className="text-sm font-semibold text-brand-700">
-                  All tasks
+                  {t("All tasks", "Semua task")}
                 </Link>
               }
             >
-              Needs attention
+              {t("Needs attention", "Perlu perhatian")}
             </SectionTitle>
             {plan.recommended_tasks.length === 0 ? (
-              <EmptyState title="Nothing in your queue">
+              <EmptyState title={t("Nothing in your queue", "Belum ada task di antrean")}>
                 <Link href="/tasks/new" className="font-semibold text-brand-700">
-                  Add a task
+                  {t("Add a task", "Tambah task")}
                 </Link>{" "}
-                or try the demo to see how prioritisation works.
+                {t("or try the demo to see how prioritisation works.", "atau coba demo untuk melihat cara kerja prioritas.")}
               </EmptyState>
             ) : (
               <div className="grid gap-2 md:grid-cols-2">

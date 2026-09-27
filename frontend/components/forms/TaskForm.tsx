@@ -10,6 +10,7 @@ import { errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
 import { COMMON_DOCUMENTS } from "@/lib/utils/labels";
 import { toLocalInput } from "@/lib/utils/time";
+import { t } from "@/lib/i18n";
 import type { Task } from "@/types";
 
 interface Props {
@@ -83,28 +84,32 @@ export function TaskForm({ initial, timeZone, submitLabel, onSubmit, onCancel }:
       <fieldset className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
         <legend className="px-1 text-sm font-semibold text-slate-500">Shipment</legend>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Shipment reference" htmlFor="ref">
-            <input id="ref" className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. SHP-001" />
+          <Field label={t("Shipment reference", "Referensi shipment")} htmlFor="ref">
+            <input id="ref" className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} placeholder={t("e.g. SHP-001", "mis. SHP-001")} />
           </Field>
-          <Field label="Task title" htmlFor="title">
+          <Field label={t("Task title", "Judul task")} htmlFor="title">
             <input id="title" required className={inputClass} value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
-          <Field label="Client" htmlFor="client">
-            <input id="client" className={inputClass} value={client} onChange={(e) => setClient(e.target.value)} placeholder="e.g. Client A" />
+          <Field label={t("Client", "Klien")} htmlFor="client">
+            <input id="client" className={inputClass} value={client} onChange={(e) => setClient(e.target.value)} placeholder={t("e.g. Client A", "mis. Klien A")} />
           </Field>
-          <Field label="Client priority (your setting)" htmlFor="sla" hint="Optional. Only if you know it. Not an official SLA.">
+          <Field
+            label={t("Client priority (your setting)", "Prioritas klien (pengaturanmu)")}
+            htmlFor="sla"
+            hint={t("Optional. Only if you know it. Not an official SLA.", "Opsional. Isi hanya kalau kamu tahu. Bukan SLA resmi.")}
+          >
             <select id="sla" className={inputClass} value={slaTier} onChange={(e) => setSlaTier(e.target.value)}>
-              <option value="">Not set</option>
-              <option value="HIGH">High</option>
-              <option value="STANDARD">Standard</option>
-              <option value="LOW">Low</option>
+              <option value="">{t("Not set", "Belum diisi")}</option>
+              <option value="HIGH">{t("High", "Tinggi")}</option>
+              <option value="STANDARD">{t("Standard", "Standar")}</option>
+              <option value="LOW">{t("Low", "Rendah")}</option>
             </select>
           </Field>
-          <Field label="Transport mode" htmlFor="mode">
+          <Field label={t("Transport mode", "Moda transportasi")} htmlFor="mode">
             <select id="mode" className={inputClass} value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="">Not set</option>
-              <option value="SEA">Sea</option>
-              <option value="AIR">Air</option>
+              <option value="">{t("Not set", "Belum diisi")}</option>
+              <option value="SEA">{t("Sea", "Laut")}</option>
+              <option value="AIR">{t("Air", "Udara")}</option>
             </select>
           </Field>
         </div>
@@ -116,19 +121,19 @@ export function TaskForm({ initial, timeZone, submitLabel, onSubmit, onCancel }:
           <Field label="ETA" htmlFor="eta">
             <input id="eta" type="datetime-local" className={inputClass} value={eta} onChange={(e) => setEta(e.target.value)} />
           </Field>
-          <Field label="Submission deadline" htmlFor="deadline">
+          <Field label={t("Submission deadline", "Deadline pengajuan")} htmlFor="deadline">
             <input id="deadline" type="datetime-local" className={inputClass} value={deadline} onChange={(e) => setDeadline(e.target.value)} />
           </Field>
-          <Field label="Estimated processing (min)" htmlFor="est">
+          <Field label={t("Estimated processing (min)", "Estimasi pengerjaan (menit)")} htmlFor="est">
             <input id="est" type="number" min={1} max={1440} inputMode="numeric" className={inputClass} value={estimate} onChange={(e) => setEstimate(e.target.value)} />
           </Field>
         </div>
       </fieldset>
 
       <fieldset className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-        <legend className="px-1 text-sm font-semibold text-slate-500">Documents</legend>
+        <legend className="px-1 text-sm font-semibold text-slate-500">{t("Documents", "Dokumen")}</legend>
         <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">Required for this task</p>
+          <p className="mb-2 text-sm font-medium text-slate-700">{t("Required for this task", "Wajib untuk task ini")}</p>
           <div className="flex flex-wrap gap-2">
             {docOptions.map((doc) => (
               <button
@@ -148,7 +153,7 @@ export function TaskForm({ initial, timeZone, submitLabel, onSubmit, onCancel }:
           <div className="mt-2 flex gap-2">
             <input
               className={inputClass}
-              placeholder="Other document"
+              placeholder={t("Other document", "Dokumen lain")}
               value={customDoc}
               onChange={(e) => setCustomDoc(e.target.value)}
               onKeyDown={(e) => {
@@ -157,16 +162,16 @@ export function TaskForm({ initial, timeZone, submitLabel, onSubmit, onCancel }:
                   addCustomDoc();
                 }
               }}
-              aria-label="Add another required document"
+              aria-label={t("Add another required document", "Tambah dokumen wajib lain")}
             />
-            <Button type="button" variant="secondary" onClick={addCustomDoc} aria-label="Add document">
+            <Button type="button" variant="secondary" onClick={addCustomDoc} aria-label={t("Add document", "Tambah dokumen")}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>
         </div>
         {required.length > 0 && (
           <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">Already received</p>
+            <p className="mb-2 text-sm font-medium text-slate-700">{t("Already received", "Sudah diterima")}</p>
             <ul className="space-y-1.5">
               {required.map((doc) => {
                 const has = available.includes(doc);
@@ -182,7 +187,7 @@ export function TaskForm({ initial, timeZone, submitLabel, onSubmit, onCancel }:
                         {has ? <Check className="h-3.5 w-3.5" /> : null}
                       </span>
                       <span className="flex-1">{doc}</span>
-                      {!has && <span className="text-xs font-semibold text-orange-600">Missing</span>}
+                      {!has && <span className="text-xs font-semibold text-orange-600">{t("Missing", "Kurang")}</span>}
                     </button>
                   </li>
                 );
@@ -193,11 +198,15 @@ export function TaskForm({ initial, timeZone, submitLabel, onSubmit, onCancel }:
       </fieldset>
 
       <fieldset className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-        <legend className="px-1 text-sm font-semibold text-slate-500">Notes</legend>
-        <Field label="Next action" htmlFor="action">
-          <input id="action" className={inputClass} value={action} onChange={(e) => setAction(e.target.value)} placeholder="e.g. Request Packing List from shipper" />
+        <legend className="px-1 text-sm font-semibold text-slate-500">{t("Notes", "Catatan")}</legend>
+        <Field label={t("Next action", "Aksi berikutnya")} htmlFor="action">
+          <input id="action" className={inputClass} value={action} onChange={(e) => setAction(e.target.value)} placeholder={t("e.g. Request Packing List from shipper", "mis. Minta Packing List ke shipper")} />
         </Field>
-        <Field label="Notes" htmlFor="notes" hint="Keep notes short. Avoid copying confidential document content.">
+        <Field
+          label={t("Notes", "Catatan")}
+          htmlFor="notes"
+          hint={t("Keep notes short. Avoid copying confidential document content.", "Tulis catatan singkat. Hindari menyalin isi dokumen rahasia.")}
+        >
           <textarea id="notes" rows={3} className={inputClass} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
       </fieldset>
@@ -205,7 +214,7 @@ export function TaskForm({ initial, timeZone, submitLabel, onSubmit, onCancel }:
       <InlineError message={error} />
       <div className="flex gap-2">
         <Button type="button" variant="secondary" onClick={onCancel} className="flex-1 sm:flex-none">
-          <X className="h-4 w-4" aria-hidden /> Cancel
+          <X className="h-4 w-4" aria-hidden /> {t("Cancel", "Batal")}
         </Button>
         <Button type="submit" loading={saving} disabled={!online} className="flex-1 sm:flex-none">
           {submitLabel}

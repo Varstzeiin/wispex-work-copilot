@@ -10,23 +10,32 @@ import { useRefreshTaskData } from "@/features/task-management/hooks";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline, useSettings } from "@/lib/hooks";
 import { formatDateTime } from "@/lib/utils/time";
+import { t } from "@/lib/i18n";
 import type { Task } from "@/types";
 
-const REMINDER_OPTIONS = [
-  { minutes: 1440, label: "24 hours" },
-  { minutes: 240, label: "4 hours" },
-  { minutes: 60, label: "1 hour" },
-  { minutes: 30, label: "30 minutes" },
-  { minutes: 15, label: "15 minutes" },
-];
+const REMINDER_MINUTES = [1440, 240, 60, 30, 15];
 
-const SYNC_LABEL: Record<string, string> = {
-  SYNCED: "Synced to Google Calendar",
-  LOCAL_ONLY: "Saved in Wispex. Download the .ics file to add it to your calendar",
-  OUT_OF_DATE: "Deadline changed. Update the calendar event",
-  FAILED: "Google Calendar sync failed. Try again",
-  PENDING: "Syncing…",
-};
+function reminderLabel(minutes: number): string {
+  if (minutes >= 60) {
+    const hours = minutes / 60;
+    return t(`${hours} hour${hours === 1 ? "" : "s"}`, `${hours} jam`);
+  }
+  return t(`${minutes} minutes`, `${minutes} menit`);
+}
+
+function syncLabel(status: string): string {
+  const labels: Record<string, string> = {
+    SYNCED: t("Synced to Google Calendar", "Tersinkron ke Google Calendar"),
+    LOCAL_ONLY: t(
+      "Saved in Wispex. Download the .ics file to add it to your calendar",
+      "Tersimpan di Wispex. Unduh file .ics untuk menambahkannya ke kalender kamu",
+    ),
+    OUT_OF_DATE: t("Deadline changed. Update the calendar event", "Deadline berubah. Perbarui event kalendernya"),
+    FAILED: t("Google Calendar sync failed. Try again", "Sinkronisasi Google Calendar gagal. Coba lagi"),
+    PENDING: t("Syncing…", "Menyinkronkan…"),
+  };
+  return labels[status] ?? status;
+}
 
 export function CalendarReminder({ task }: { task: Task }) {
   const refresh = useRefreshTaskData();
@@ -40,8 +49,10 @@ export function CalendarReminder({ task }: { task: Task }) {
   if (!task.submission_deadline) {
     return (
       <Card>
-        <SectionTitle>Calendar reminder</SectionTitle>
-        <p className="text-sm text-slate-500">Set a submission deadline to add a calendar reminder.</p>
+        <SectionTitle>{t("Calendar reminder", "Pengingat kalender")}</SectionTitle>
+        <p className="text-sm text-slate-500">
+          {t("Set a submission deadline to add a calendar reminder.", "Isi deadline pengajuan untuk menambahkan pengingat kalender.")}
+        </p>
       </Card>
     );
   }
@@ -65,7 +76,7 @@ export function CalendarReminder({ task }: { task: Task }) {
 
   return (
     <Card>
-      <SectionTitle>Calendar reminder</SectionTitle>
+      <SectionTitle>{t("Calendar reminder", "Pengingat kalender")}</SectionTitle>
       <p className="text-sm text-slate-700">
         <span className="font-semibold">
           WISPEX — {task.shipment_reference ?? task.title} Submission Deadline
@@ -74,22 +85,22 @@ export function CalendarReminder({ task }: { task: Task }) {
         {formatDateTime(task.submission_deadline, timezone)}
       </p>
 
-      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Remind me before</p>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Remind me before", "Ingatkan sebelum")}</p>
       <div className="mt-1 flex flex-wrap gap-2">
-        {REMINDER_OPTIONS.map((r) => {
-          const on = reminders.includes(r.minutes);
+        {REMINDER_MINUTES.map((minutes) => {
+          const on = reminders.includes(minutes);
           return (
             <button
-              key={r.minutes}
+              key={minutes}
               type="button"
-              onClick={() => setReminders(on ? reminders.filter((m) => m !== r.minutes) : [...reminders, r.minutes].slice(-5))}
+              onClick={() => setReminders(on ? reminders.filter((m) => m !== minutes) : [...reminders, minutes].slice(-5))}
               className={clsx(
                 "rounded-full border px-3 py-1 text-sm",
                 on ? "border-brand-600 bg-brand-50 font-semibold text-brand-800" : "border-slate-300 text-slate-600",
               )}
               aria-pressed={on}
             >
-              {r.label}
+              {reminderLabel(minutes)}
             </button>
           );
         })}
@@ -103,34 +114,42 @@ export function CalendarReminder({ task }: { task: Task }) {
             (event.sync_status === "FAILED" || event.sync_status === "OUT_OF_DATE") && "bg-amber-50 text-amber-900",
           )}
         >
-          {SYNC_LABEL[event.sync_status] ?? event.sync_status}
+          {syncLabel(event.sync_status)}
         </p>
       )}
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:flex">
         <Button onClick={save} loading={saving} disabled={!online || reminders.length === 0} className="col-span-2 sm:col-span-1">
           <CalendarPlus className="h-4 w-4" aria-hidden />
-          {event ? "Update reminder" : google ? "Add to Google Calendar" : "Add calendar reminder"}
+          {event
+            ? t("Update reminder", "Perbarui pengingat")
+            : google
+              ? t("Add to Google Calendar", "Tambah ke Google Calendar")
+              : t("Add calendar reminder", "Tambah pengingat kalender")}
         </Button>
         <a
           href={`/api/calendar/tasks/${task.id}/event.ics`}
           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50"
         >
-          <Download className="h-4 w-4" aria-hidden /> .ics file
+          <Download className="h-4 w-4" aria-hidden /> {t(".ics file", "File .ics")}
         </a>
         {event && (
           <Button variant="ghost" onClick={remove} disabled={!online || saving}>
-            <Trash2 className="h-4 w-4" aria-hidden /> Remove
+            <Trash2 className="h-4 w-4" aria-hidden /> {t("Remove", "Hapus")}
           </Button>
         )}
       </div>
       {!google && (
         <p className="mt-2 text-xs text-slate-500">
-          Google Calendar is not connected.{" "}
+          {t("Google Calendar is not connected.", "Google Calendar belum tersambung.")}{" "}
           <Link href="/calendar" className="font-semibold text-brand-700 underline">
-            Calendar settings
+            {t("Calendar settings", "Pengaturan kalender")}
           </Link>
-          . The .ics file works with Google Calendar, Outlook and Apple Calendar.
+          .{" "}
+          {t(
+            "The .ics file works with Google Calendar, Outlook and Apple Calendar.",
+            "File .ics bisa dipakai di Google Calendar, Outlook, dan Apple Calendar.",
+          )}
         </p>
       )}
       <div className="mt-2">

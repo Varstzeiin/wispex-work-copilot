@@ -11,14 +11,26 @@ import { Button, EmptyState, ErrorState, LinkButton, PageHeader, Spinner, inputC
 import { useTasks, type TaskQuery } from "@/features/task-management/hooks";
 import { errorMessage } from "@/lib/api/client";
 import { useDebounced, useSettings } from "@/lib/hooks";
+import { t } from "@/lib/i18n";
 
-const FILTERS: { key: string; label: string; query: Partial<TaskQuery> }[] = [
-  { key: "open", label: "All open", query: { view: "open" } },
-  { key: "critical", label: "Critical", query: { view: "open", level: "CRITICAL" } },
-  { key: "high", label: "High", query: { view: "open", level: "HIGH" } },
-  { key: "active", label: "In progress", query: { view: "open", status: "IN_PROGRESS,NEEDS_REVIEW" } },
-  { key: "waiting", label: "Waiting / escalated", query: { view: "open", status: "WAITING,ESCALATED,ON_HOLD" } },
-  { key: "closed", label: "Completed", query: { view: "closed" } },
+/** Filter chip whose label follows the active language. */
+function filterChip(key: string, en: string, id: string, query: Partial<TaskQuery>) {
+  return {
+    key,
+    query,
+    get label() {
+      return t(en, id);
+    },
+  };
+}
+
+const FILTERS = [
+  filterChip("open", "All open", "Semua aktif", { view: "open" }),
+  filterChip("critical", "Critical", "Kritis", { view: "open", level: "CRITICAL" }),
+  filterChip("high", "High", "Tinggi", { view: "open", level: "HIGH" }),
+  filterChip("active", "In progress", "Dikerjakan", { view: "open", status: "IN_PROGRESS,NEEDS_REVIEW" }),
+  filterChip("waiting", "Waiting / escalated", "Menunggu / dieskalasi", { view: "open", status: "WAITING,ESCALATED,ON_HOLD" }),
+  filterChip("closed", "Completed", "Selesai", { view: "closed" }),
 ];
 
 function filterFromParams(params: URLSearchParams): string {
@@ -64,11 +76,11 @@ function TaskInbox() {
   return (
     <div>
       <PageHeader
-        title="Task Inbox"
-        subtitle={data ? `${data.total} task${data.total === 1 ? "" : "s"}` : undefined}
+        title={t("Task Inbox", "Kotak Task")}
+        subtitle={data ? `${data.total} ${t(data.total === 1 ? "task" : "tasks", "task")}` : undefined}
         action={
           <LinkButton href="/tasks/new" variant="primary" className="hidden md:inline-flex">
-            <Plus className="h-4 w-4" aria-hidden /> New task
+            <Plus className="h-4 w-4" aria-hidden /> {t("New task", "Task baru")}
           </LinkButton>
         }
       />
@@ -79,22 +91,22 @@ function TaskInbox() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
             <input
               type="search"
-              placeholder="Search shipment, client or title"
+              placeholder={t("Search shipment, client or title", "Cari shipment, klien, atau judul")}
               className={clsx(inputClass, "pl-9")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search tasks"
+              aria-label={t("Search tasks", "Cari task")}
             />
           </div>
           <select
             className={clsx(inputClass, "!w-auto shrink-0")}
             value={sort}
             onChange={(e) => setSort(e.target.value as TaskQuery["sort"])}
-            aria-label="Sort"
+            aria-label={t("Sort", "Urutkan")}
           >
-            <option value="priority">Priority</option>
+            <option value="priority">{t("Priority", "Prioritas")}</option>
             <option value="deadline">Deadline</option>
-            <option value="created">Newest</option>
+            <option value="created">{t("Newest", "Terbaru")}</option>
           </select>
         </div>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0">
@@ -122,10 +134,10 @@ function TaskInbox() {
         {error && <ErrorState message={errorMessage(error)} onRetry={() => mutate()} />}
         {isLoading && !data && <Spinner />}
         {data && data.items.length === 0 && (
-          <EmptyState title={q ? "No tasks match your search" : "No tasks here"}>
+          <EmptyState title={q ? t("No tasks match your search", "Tidak ada task yang cocok") : t("No tasks here", "Belum ada task di sini")}>
             {filter === "open" && !q && (
               <Link href="/tasks/new" className="font-semibold text-brand-700">
-                Add your first task
+                {t("Add your first task", "Tambah task pertamamu")}
               </Link>
             )}
           </EmptyState>
@@ -140,13 +152,13 @@ function TaskInbox() {
         {data && totalPages > 1 && (
           <div className="mt-4 flex items-center justify-between">
             <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              Previous
+              {t("Previous", "Sebelumnya")}
             </Button>
             <span className="text-sm text-slate-500">
-              Page {page} of {totalPages}
+              {t(`Page ${page} of ${totalPages}`, `Halaman ${page} dari ${totalPages}`)}
             </span>
             <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-              Next
+              {t("Next", "Berikutnya")}
             </Button>
           </div>
         )}
@@ -155,7 +167,7 @@ function TaskInbox() {
       <Link
         href="/tasks/new"
         className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg md:hidden"
-        aria-label="New task"
+        aria-label={t("New task", "Task baru")}
       >
         <Plus className="h-6 w-6" />
       </Link>

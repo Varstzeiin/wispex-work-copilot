@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAlerts } from "@/features/daily-planner/hooks";
 import { useSettings } from "@/lib/hooks";
+import { t } from "@/lib/i18n";
 import type { Alert } from "@/types";
 
 const SEEN_KEY = "wispex-seen-alerts";
@@ -67,20 +68,24 @@ export function NotificationCenter() {
   const first = toast[0];
   const single = toast.length === 1;
   const heading =
-    first.kind === "OVERDUE" ? "Deadline passed" : first.kind === "CRITICAL" ? "Deadline approaching" : "Becoming critical soon";
+    first.kind === "OVERDUE"
+      ? t("Deadline passed", "Deadline terlewat")
+      : first.kind === "CRITICAL"
+        ? t("Deadline approaching", "Deadline mendekat")
+        : t("Becoming critical soon", "Segera jadi kritis");
   return (
     <div className="fixed inset-x-3 top-3 z-50 md:left-auto md:right-4 md:w-96" aria-live="polite">
       <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-white p-3 shadow-lg">
         <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
         <Link href={single ? `/tasks/${first.task_id}` : "/"} className="min-w-0 flex-1 text-sm" onClick={() => setToast(null)}>
           <p className="font-semibold text-slate-900">
-            {single ? `${heading} · ${first.title}` : `${toast.length} deadline alerts`}
+            {single ? `${heading} · ${first.title}` : `${toast.length} ${t("deadline alerts", "peringatan deadline")}`}
           </p>
           <p className="truncate text-slate-600">
-            {single ? first.message : toast.map((a) => `${a.title} (${a.kind.toLowerCase()})`).join(", ")}
+            {single ? first.message : toast.map((a) => `${a.title} (${a.kind === "OVERDUE" ? t("overdue", "terlambat") : a.kind === "CRITICAL" ? t("critical", "kritis") : t("soon critical", "segera kritis")})`).join(", ")}
           </p>
         </Link>
-        <button onClick={() => setToast(null)} className="rounded-full p-1 text-slate-400 hover:bg-slate-100" aria-label="Dismiss">
+        <button onClick={() => setToast(null)} className="rounded-full p-1 text-slate-400 hover:bg-slate-100" aria-label={t("Dismiss", "Tutup")}>
           <X className="h-4 w-4" />
         </button>
       </div>
