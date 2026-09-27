@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 
 import { TaskForm } from "@/components/forms/TaskForm";
+import { DeleteTaskButton } from "@/components/task/DeleteTaskButton";
 import { ErrorState, PageHeader, Spinner } from "@/components/ui";
 import { taskApi, useRefreshTaskData, useTask } from "@/features/task-management/hooks";
 import { errorMessage } from "@/lib/api/client";
@@ -33,6 +34,10 @@ export default function EditTaskPage() {
           router.replace(`/tasks/${task.id}`);
         }}
       />
+      {/* A task added by mistake can be removed from here too */}
+      <div className="mt-6 border-t border-slate-200 pt-4">
+        <DeleteTaskButton taskId={task.id} block />
+      </div>
     </div>
   );
 }

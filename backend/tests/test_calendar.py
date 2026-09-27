@@ -178,3 +178,33 @@ def test_calendar_redirect_defaults_to_the_frontend_origin(monkeypatch):
     get_settings.cache_clear()
     assert get_settings().google_calendar_redirect == "https://other.example.com/cb"
     get_settings.cache_clear()
+
+
+def test_deleting_a_task_removes_its_google_event(client, google):
+    connect(client)
+    task = create_task(client)
+    client.put(f"/api/calendar/tasks/{task['id']}/event", json={})
+    assert len(google.events) == 1
+    assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
+    assert google.events == {}
+    assert client.get(f"/api/tasks/{task['id']}").status_code == 404
+    assert client.get("/api/calendar/events").json() == []
+    assert client.get("/api/tasks").json()["total"] == 0
+
+
+def test_google_error_never_blocks_deleting_a_task(client, google, monkeypatch):
+    connect(client)
+    task = create_task(client)
+    client.put(f"/api/calendar/tasks/{task['id']}/event", json={})
+    real = google.handler
+
+    def failing(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500) if request.method == "DELETE" else real(request)
+
+    monkeypatch.setattr(calendar_service, "google_client", GoogleCalendarClient(httpx.MockTransport(failing)))
+    # Removing only the reminder reports the Google error ...
+    assert client.delete(f"/api/calendar/tasks/{task['id']}/event").status_code == 502
+    # ... but deleting the whole task still works
+    assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
+    assert client.get(f"/api/tasks/{task['id']}").status_code == 404
+    assert client.get("/api/calendar/events").json() == []

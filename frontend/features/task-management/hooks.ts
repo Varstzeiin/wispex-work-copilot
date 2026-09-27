@@ -50,6 +50,36 @@ export function useRefreshTaskData() {
     );
 }
 
+/**
+ * Delete a task and drop it from every cached list right away. The task's own cache entry is
+ * removed without refetching it (it no longer exists), then lists and plans are revalidated.
+ */
+export function useDeleteTask() {
+  const { mutate } = useSWRConfig();
+  return async (id: string) => {
+    await api.delete(`/api/tasks/${id}`);
+    const own = `/api/tasks/${id}`;
+    await mutate((key) => typeof key === "string" && (key === own || key.startsWith(`${own}/`)), undefined, {
+      revalidate: false,
+    });
+    await mutate(
+      (key) => typeof key === "string" && key.startsWith("/api/tasks?"),
+      (list?: TaskList) => {
+        if (!list) return list;
+        const items = list.items.filter((task) => task.id !== id);
+        return { ...list, items, total: list.total - (list.items.length - items.length) };
+      },
+      { revalidate: true },
+    );
+    // Plans, alerts and calendar depend on the task too. Errors here never undo the deletion.
+    await mutate(
+      (key) =>
+        typeof key === "string" &&
+        (key.startsWith("/api/planner") || key.startsWith("/api/notifications") || key.startsWith("/api/calendar")),
+    ).catch(() => undefined);
+  };
+}
+
 export interface TaskPayload {
   title: string;
   shipment_reference?: string | null;

@@ -1,20 +1,20 @@
 "use client";
 
-import { ArrowLeft, CalendarClock, Crosshair, FileText, Mail, Pencil, Plane, ShieldQuestion, Ship, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CalendarClock, Crosshair, FileText, Mail, Pencil, Plane, ShieldQuestion, Ship, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
 
 import { ClarificationList } from "@/components/assistant/ClarificationList";
 import { TaskDocuments } from "@/components/document/TaskDocuments";
 import { CalendarReminder } from "@/components/task/CalendarReminder";
+import { DeleteTaskButton } from "@/components/task/DeleteTaskButton";
 import { Countdown, GuidanceChip, PriorityBadge, StatusBadge } from "@/components/task/badges";
 import { StatusActions } from "@/components/task/StatusActions";
 import { DocumentChecklist, IssueList, PriorityBreakdown } from "@/components/task/TaskSections";
-import { Button, Card, ErrorState, InlineError, LinkButton, Modal, SectionTitle, Spinner } from "@/components/ui";
-import { taskApi, useRefreshTaskData, useTask } from "@/features/task-management/hooks";
+import { Card, ErrorState, LinkButton, SectionTitle, Spinner } from "@/components/ui";
+import { useTask } from "@/features/task-management/hooks";
 import { errorMessage } from "@/lib/api/client";
-import { useOnline, useSettings } from "@/lib/hooks";
+import { useSettings } from "@/lib/hooks";
 import { GUIDANCE } from "@/lib/utils/labels";
 import { formatDateTime, formatMinutes } from "@/lib/utils/time";
 import { t } from "@/lib/i18n";
@@ -22,13 +22,8 @@ import { t } from "@/lib/i18n";
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const online = useOnline();
-  const refresh = useRefreshTaskData();
   const { timezone } = useSettings();
   const { data: task, error, mutate } = useTask(id);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (error) return <ErrorState message={errorMessage(error)} onRetry={() => mutate()} />;
   if (!task) return <Spinner />;
@@ -37,19 +32,6 @@ export default function TaskDetailPage() {
   const ModeIcon = task.transport_mode === "AIR" ? Plane : Ship;
   const g = GUIDANCE[task.guidance];
   const docsDone = task.required_documents.length - task.missing_documents.length;
-
-  async function remove() {
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      await taskApi.remove(task!.id);
-      await refresh();
-      router.replace("/tasks");
-    } catch (e) {
-      setDeleteError(errorMessage(e));
-      setDeleting(false);
-    }
-  }
 
   return (
     <div className="space-y-4">
@@ -61,9 +43,7 @@ export default function TaskDetailPage() {
           <LinkButton href={`/tasks/${task.id}/edit`} variant="ghost">
             <Pencil className="h-4 w-4" aria-hidden /> {t("Edit", "Ubah")}
           </LinkButton>
-          <Button variant="ghost" onClick={() => setConfirmDelete(true)} disabled={!online} aria-label={t("Delete task", "Hapus task")}>
-            <Trash2 className="h-4 w-4" aria-hidden />
-          </Button>
+          <DeleteTaskButton taskId={task.id} />
         </div>
       </div>
 
@@ -213,25 +193,6 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      <Modal open={confirmDelete} title={t("Delete this task?", "Hapus task ini?")} onClose={() => setConfirmDelete(false)}>
-        <p className="text-sm text-slate-600">
-          {t(
-            "This permanently deletes the task and its linked calendar event. The deletion is recorded in your activity log. To keep a record, mark it as cancelled instead.",
-            "Ini menghapus task beserta event kalender yang terhubung secara permanen. Penghapusan dicatat di log aktivitas. Kalau ingin tetap ada catatannya, tandai sebagai dibatalkan saja.",
-          )}
-        </p>
-        <div className="mt-3">
-          <InlineError message={deleteError} />
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
-            {t("Keep task", "Jangan hapus")}
-          </Button>
-          <Button variant="danger" loading={deleting} onClick={remove}>
-            {t("Delete", "Hapus")}
-          </Button>
-        </div>
-      </Modal>
     </div>
   );
 }

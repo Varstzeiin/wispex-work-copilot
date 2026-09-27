@@ -185,7 +185,12 @@ def _push_to_google(db: Session, user: User, conn: CalendarConnection, task: Tas
         event.last_error = str(exc)[:250] if isinstance(exc, CalendarProviderError) else "Sync failed"
 
 
-def delete_task_event(db: Session, user: User, task: Task) -> None:
+def delete_task_event(db: Session, user: User, task: Task, strict: bool = True, commit: bool = True) -> None:
+    """Remove the task's reminder, also from Google when synced.
+
+    strict=False (used when the task itself is deleted): a Google error never blocks the deletion.
+    The Google event then stays in the user's calendar and the problem is only logged.
+    """
     event = get_event_for_task(db, task)
     if event is None:
         return
@@ -194,12 +199,17 @@ def delete_task_event(db: Session, user: User, task: Task) -> None:
         if conn is not None:
             try:
                 google_client.delete_event(_access_token(db, conn), event.calendar_id, event.external_event_id)
-            except CalendarProviderError as exc:
-                raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+            except (CalendarProviderError, HTTPException) as exc:
+                if strict:
+                    if isinstance(exc, HTTPException):
+                        raise
+                    raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+                logger.warning("Google event could not be removed while deleting a task: %s", type(exc).__name__)
     audit_service.log(db, user.id, "CALENDAR_EVENT_DELETED", "calendar_event", event.id,
                       previous_state={"task_id": str(task.id)})
     db.delete(event)
-    db.commit()
+    if commit:
+        db.commit()
 
 
 def resync_events(db: Session, user: User) -> dict:

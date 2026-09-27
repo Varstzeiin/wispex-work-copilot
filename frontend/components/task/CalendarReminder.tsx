@@ -135,7 +135,7 @@ export function CalendarReminder({ task }: { task: Task }) {
         </a>
         {event && (
           <Button variant="ghost" onClick={remove} disabled={!online || saving}>
-            <Trash2 className="h-4 w-4" aria-hidden /> {t("Remove", "Hapus")}
+            <Trash2 className="h-4 w-4" aria-hidden /> {t("Remove reminder", "Hapus pengingat")}
           </Button>
         )}
       </div>
