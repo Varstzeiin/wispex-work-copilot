@@ -1,0 +1,6 @@
+tests/
+models/
+storage/
+.venv/
+*.db
+__pycache__/
