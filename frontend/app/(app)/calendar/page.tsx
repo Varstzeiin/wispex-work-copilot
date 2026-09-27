@@ -97,7 +97,7 @@ function CalendarView() {
             <p className="font-semibold">Integration Required</p>
             <p className="mt-1">
               Google Calendar sync is not configured on this server. An administrator must add an authorized Google OAuth
-              client (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI), and your organization must permit
+              client (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET), and your organization must permit
               calendar access.
             </p>
             <p className="mt-2">

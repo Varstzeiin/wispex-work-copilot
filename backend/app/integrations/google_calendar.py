@@ -1,6 +1,7 @@
 """Google Calendar adapter (OAuth 2.0 + REST).
 
-Only active when GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI are set.
+Active when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set. The redirect URI defaults to
+{FRONTEND_URL}/api/calendar/google/callback (override with GOOGLE_REDIRECT_URI).
 Scope is limited to calendar events. Tokens are stored encrypted (see core/security.py).
 """
 
@@ -37,7 +38,7 @@ class GoogleCalendarClient:
         s = get_settings()
         params = {
             "client_id": s.google_client_id,
-            "redirect_uri": s.google_redirect_uri,
+            "redirect_uri": s.google_calendar_redirect,
             "response_type": "code",
             "scope": SCOPE,
             "access_type": "offline",
@@ -54,7 +55,7 @@ class GoogleCalendarClient:
                 "code": code,
                 "client_id": s.google_client_id,
                 "client_secret": s.google_client_secret,
-                "redirect_uri": s.google_redirect_uri,
+                "redirect_uri": s.google_calendar_redirect,
                 "grant_type": "authorization_code",
             }
         )
