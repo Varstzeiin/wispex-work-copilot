@@ -29,7 +29,7 @@ from app.api import (
 )
 from app.core.config import get_settings
 from app.core.database import get_db, init_db
-from app.core.readiness import log_config_warnings, readiness
+from app.core.readiness import database_hint, log_config_warnings, readiness
 from app.core.security import require_csrf_header
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -38,7 +38,11 @@ logger = logging.getLogger("wispex")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_db()
+    try:
+        init_db()
+    except Exception as exc:
+        # Keep serving: /api/health/ready then says what is wrong instead of every request failing
+        logger.error("Database set-up failed: %s", database_hint(exc))
     log_config_warnings(get_settings())
     # Before accepting requests: loading the model mid-traffic can freeze the server (see preload)
     embeddings.preload()
@@ -114,6 +118,12 @@ routers = (
 )
 for router in routers:
     app.include_router(router, prefix="/api", dependencies=protected)
+
+
+@app.get("/")
+def root():
+    """Opening the backend address in a browser shows where to look, instead of a 404."""
+    return {"service": "Wispex Work Copilot API", "health": "/api/health/ready"}
 
 
 @app.get("/api/health")
