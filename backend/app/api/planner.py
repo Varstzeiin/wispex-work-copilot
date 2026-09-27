@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.api.tasks import refresh_open_priorities
 from app.core.database import get_db, utcnow
+from app.core.i18n import tr
 from app.core.security import get_current_user
 from app.models import User
-from app.rules.deadline_rules import merged_thresholds
+from app.rules.deadline_rules import format_duration, merged_thresholds
 from app.services import planner_service
 from app.services.settings_service import get_user_settings
 from app.services.task_service import serialize_task
@@ -40,14 +41,15 @@ def notifications(user: User = Depends(get_current_user), db: Session = Depends(
         t = serialize_task(task, settings, now)
         d = t["deadline"]
         label = t["shipment_reference"] or t["title"]
+        left = format_duration(d["minutes_remaining"]) if d["minutes_remaining"] is not None else ""
         if d["overdue"]:
-            kind, message = "OVERDUE", f"Deadline passed. {d['label']}"
+            kind, message = "OVERDUE", tr(f"Deadline passed. {d['label']}", f"Deadline sudah lewat. {d['label']}")
         elif d["status"] == "CRITICAL":
-            kind, message = "CRITICAL", f"Deadline in {d['label'].replace(' remaining', '')}"
+            kind, message = "CRITICAL", tr(f"Deadline in {left}", f"Deadline {left} lagi")
         elif d["approaching_critical"]:
             kind, message = (
                 "APPROACHING",
-                f"Becomes critical soon. Deadline in {d['label'].replace(' remaining', '')}",
+                tr(f"Becomes critical soon. Deadline in {left}", f"Segera jadi kritis. Deadline {left} lagi"),
             )
         else:
             continue

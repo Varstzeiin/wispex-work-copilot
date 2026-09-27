@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
+from app.core.i18n import tr
 from app.models import ErrorReport, Task, User
 from app.schemas.performance import ErrorCreate, ErrorStatusChange, ErrorUpdate
 from app.services import audit_service
@@ -30,6 +31,23 @@ CATEGORY_LABEL = {
     "TIME_MANAGEMENT": "Time management",
     "OTHER": "Other",
 }
+CATEGORY_LABEL_ID = {
+    "TYPOGRAPHICAL": "Salah ketik",
+    "DATA_READING": "Salah baca data",
+    "DATA_ENTRY": "Salah input data",
+    "MISSING_INFORMATION": "Informasi kurang",
+    "CROSS_DOCUMENT": "Perbedaan antar dokumen",
+    "SOP_PROCEDURE": "SOP / prosedur",
+    "COMMUNICATION": "Komunikasi",
+    "TIME_MANAGEMENT": "Manajemen waktu",
+    "OTHER": "Lainnya",
+}
+
+
+def category_label(key: str) -> str:
+    if key not in CATEGORY_LABEL:
+        return key.title()
+    return tr(CATEGORY_LABEL[key], CATEGORY_LABEL_ID[key])
 ORDER = ("REPORTED", "NOTIFIED", "CORRECTING", "RESOLVED")
 RECURRING_WINDOW_DAYS = 14
 RECURRING_THRESHOLD = 3
@@ -43,7 +61,10 @@ def number_word(n: int) -> str:
 def get_error_for_user(db: Session, user: User, error_id: uuid.UUID) -> ErrorReport:
     report = db.get(ErrorReport, error_id)
     if report is None or report.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Error report not found.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr(
+            "Error report not found.",
+            "Laporan kesalahan tidak ditemukan.",
+        ))
     return report
 
 
@@ -54,7 +75,9 @@ def create_error(db: Session, user: User, data: ErrorCreate) -> ErrorReport:
     if data.task_id:
         task = db.get(Task, data.task_id)
         if task is None or task.user_id != user.id:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Linked task not found.")
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, tr("Linked task not found.", "Task yang ditautkan tidak ditemukan.")
+            )
         task_id = task.id
         if not reference and task.shipment:
             reference = task.shipment.reference
@@ -113,10 +136,13 @@ def change_status(db: Session, user: User, report: ErrorReport, data: ErrorStatu
         return report
     reopening = previous == "RESOLVED" and new == "CORRECTING"
     if not reopening and ORDER.index(new) != ORDER.index(previous) + 1:
+        following = ORDER[min(ORDER.index(previous) + 1, len(ORDER) - 1)].lower()
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"Follow the steps in order. The next step after {previous.lower()} is "
-            f"{ORDER[min(ORDER.index(previous) + 1, len(ORDER) - 1)].lower()}.",
+            tr(
+                f"Follow the steps in order. The next step after {previous.lower()} is {following}.",
+                f"Ikuti langkah secara berurutan. Langkah setelah {previous.lower()} adalah {following}.",
+            ),
         )
 
     now = utcnow()
@@ -129,14 +155,23 @@ def change_status(db: Session, user: User, report: ErrorReport, data: ErrorStatu
 
     if new == "NOTIFIED":
         if not report.notified_person:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Record who you notified (a role is enough).")
+            raise HTTPException(status.HTTP_409_CONFLICT, tr(
+                "Record who you notified (a role is enough).",
+                "Catat siapa yang kamu beri tahu (jabatan saja cukup).",
+            ))
         report.notified_at = now
     elif new == "CORRECTING" and not reopening:
         if not report.correction_notes:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Describe the correction you are preparing.")
+            raise HTTPException(status.HTTP_409_CONFLICT, tr(
+                "Describe the correction you are preparing.",
+                "Jelaskan koreksi yang sedang kamu siapkan.",
+            ))
     elif new == "RESOLVED":
         if not report.resolution:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Record how the error was resolved.")
+            raise HTTPException(status.HTTP_409_CONFLICT, tr(
+                "Record how the error was resolved.",
+                "Catat bagaimana kesalahan ini diselesaikan.",
+            ))
         report.resolved_at = now
     if reopening:
         report.resolved_at = None
@@ -156,17 +191,17 @@ def change_status(db: Session, user: User, report: ErrorReport, data: ErrorStatu
 
 def workflow_steps(r: ErrorReport) -> list[dict]:
     steps = [
-        ("Stop and verify", True),
-        ("Identify the exact field", bool(r.field_name)),
-        ("Identify the correct value", bool(r.correct_value)),
-        ("Identify the source document", bool(r.source_document)),
-        ("Record when it was submitted", r.submitted_at is not None),
-        ("Assess potential impact", bool(r.impact)),
-        ("Notify the appropriate person", r.notified_at is not None),
-        ("Prepare the correction", bool(r.correction_notes)),
-        ("Follow the instructions received", bool(r.instructions)),
-        ("Record the resolution", r.resolved_at is not None),
-        ("Root-cause analysis", bool(r.root_cause)),
+        (tr("Stop and verify", "Berhenti dan verifikasi"), True),
+        (tr("Identify the exact field", "Tentukan field yang salah"), bool(r.field_name)),
+        (tr("Identify the correct value", "Tentukan nilai yang benar"), bool(r.correct_value)),
+        (tr("Identify the source document", "Tentukan dokumen sumber"), bool(r.source_document)),
+        (tr("Record when it was submitted", "Catat kapan dikirim"), r.submitted_at is not None),
+        (tr("Assess potential impact", "Nilai potensi dampaknya"), bool(r.impact)),
+        (tr("Notify the appropriate person", "Beri tahu orang yang tepat"), r.notified_at is not None),
+        (tr("Prepare the correction", "Siapkan koreksi"), bool(r.correction_notes)),
+        (tr("Follow the instructions received", "Ikuti instruksi yang diterima"), bool(r.instructions)),
+        (tr("Record the resolution", "Catat penyelesaiannya"), r.resolved_at is not None),
+        (tr("Root-cause analysis", "Analisis akar masalah"), bool(r.root_cause)),
     ]
     return [{"step": i, "label": label, "done": done} for i, (label, done) in enumerate(steps, start=1)]
 
@@ -193,7 +228,7 @@ def serialize(r: ErrorReport) -> dict:
         "submitted_at": r.submitted_at,
         "discovered_at": r.discovered_at,
         "category": r.category,
-        "category_label": CATEGORY_LABEL.get(r.category, r.category),
+        "category_label": category_label(r.category),
         "severity": r.severity,
         "impact": r.impact,
         "notified_person": r.notified_person,
@@ -245,12 +280,17 @@ def recurring_patterns(errors: list[ErrorReport], now: datetime) -> list[dict]:
                 "kind": "FIELD",
                 "key": topic,
                 "count": count,
-                "message": (
+                "message": tr(
                     f"You have encountered {number_word(count)} {topic}-related errors in the last "
                     f"{RECURRING_WINDOW_DAYS} days. Consider adding an explicit {topic} verification step "
-                    "to your personal checklist."
+                    "to your personal checklist.",
+                    f"Ada {count} kesalahan terkait {topic} dalam {RECURRING_WINDOW_DAYS} hari terakhir. "
+                    f"Pertimbangkan menambah langkah verifikasi {topic} di checklist pribadi kamu.",
                 ),
-                "suggested_learning": f"Explicit {topic} verification step before submission",
+                "suggested_learning": tr(
+                    f"Explicit {topic} verification step before submission",
+                    f"Langkah verifikasi {topic} sebelum mengirim",
+                ),
             }
         )
     covered = {p["key"] for p in patterns}
@@ -260,17 +300,19 @@ def recurring_patterns(errors: list[ErrorReport], now: datetime) -> list[dict]:
         # Skip a category whose errors are all already explained by a recurring field above
         if all(_topic(e.field_name) in covered for e in recent if e.category == category):
             continue
-        label = CATEGORY_LABEL[category].lower()
+        label = category_label(category).lower()
         patterns.append(
             {
                 "kind": "CATEGORY",
                 "key": category,
                 "count": count,
-                "message": (
+                "message": tr(
                     f"{number_word(count).capitalize()} {label} errors in the last {RECURRING_WINDOW_DAYS} days. "
-                    "Review what these have in common and agree a prevention step."
+                    "Review what these have in common and agree a prevention step.",
+                    f"{count} kesalahan {label} dalam {RECURRING_WINDOW_DAYS} hari terakhir. "
+                    "Cek apa kesamaannya dan sepakati langkah pencegahan.",
                 ),
-                "suggested_learning": f"Prevent {label} errors",
+                "suggested_learning": tr(f"Prevent {label} errors", f"Cegah kesalahan {label}"),
             }
         )
     return patterns
@@ -302,7 +344,7 @@ def analytics(db: Session, user: User, days: int) -> dict:
 
     def count_by(attr: str, keys) -> list[dict]:
         counts = Counter(getattr(e, attr) for e in period if getattr(e, attr))
-        return [{"key": k, "label": CATEGORY_LABEL.get(k, k.title()), "count": counts.get(k, 0)} for k in keys]
+        return [{"key": k, "label": category_label(k), "count": counts.get(k, 0)} for k in keys]
 
     return {
         "days": days,

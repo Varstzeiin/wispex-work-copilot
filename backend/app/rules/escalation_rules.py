@@ -7,6 +7,8 @@ risk (a close deadline, a stated compliance or financial impact). Small uncertai
 
 from dataclasses import dataclass, field
 
+from app.core.i18n import tr
+
 
 def _n(count: int, word: str, many: str = "") -> str:
     return f"{count} {word if count == 1 else (many or word + 's')}"
@@ -44,6 +46,11 @@ HEADLINES = {
     "ASK": "Ask a precise question. Continue with the verified parts meanwhile.",
     "ESCALATE": "Consider escalating to your supervisor according to the SOP, and document it.",
 }
+HEADLINES_ID = {
+    "VERIFY": "Verifikasi dulu. Sumber terpercaya kamu mungkin sudah menjawab ini.",
+    "ASK": "Ajukan pertanyaan yang jelas. Sambil menunggu, lanjutkan bagian yang sudah terverifikasi.",
+    "ESCALATE": "Pertimbangkan eskalasi ke supervisor sesuai SOP, lalu catat.",
+}
 
 
 def assess(s: Signals) -> Assessment:
@@ -54,21 +61,30 @@ def assess(s: Signals) -> Assessment:
 
     tight = s.deadline_status in ("CRITICAL", "OVERDUE")
     if s.deadline_status == "OVERDUE":
-        add("DEADLINE", "The submission deadline has passed")
+        add("DEADLINE", tr("The submission deadline has passed", "Deadline pengiriman sudah lewat"))
     elif s.deadline_status == "CRITICAL":
-        add("DEADLINE", "The submission deadline is close")
+        add("DEADLINE", tr("The submission deadline is close", "Deadline pengiriman sudah dekat"))
     if s.open_discrepancies:
-        add("CONFLICT", f"{_n(s.open_discrepancies, 'open document discrepancy', 'open document discrepancies')}")
+        n = s.open_discrepancies
+        add(
+            "CONFLICT",
+            tr(_n(n, "open document discrepancy", "open document discrepancies"), f"{n} perbedaan dokumen terbuka"),
+        )
     if s.missing_documents:
-        add("MISSING_DOCUMENT", f"{_n(s.missing_documents, 'required document')} missing")
+        n = s.missing_documents
+        add("MISSING_DOCUMENT", tr(f"{_n(n, 'required document')} missing", f"{n} dokumen wajib belum ada"))
     if s.low_confidence_fields:
-        add("LOW_CONFIDENCE", f"{_n(s.low_confidence_fields, 'field')} still to review")
+        n = s.low_confidence_fields
+        add("LOW_CONFIDENCE", tr(f"{_n(n, 'field')} still to review", f"{n} field masih perlu dicek"))
     if not s.sources_found:
-        add("NO_SOURCE", "No reliable source found in your knowledge base")
+        add(
+            "NO_SOURCE",
+            tr("No reliable source found in your knowledge base", "Belum ada sumber terpercaya di knowledge base kamu"),
+        )
     if s.compliance_impact:
-        add("COMPLIANCE", "Possible compliance impact")
+        add("COMPLIANCE", tr("Possible compliance impact", "Kemungkinan berdampak pada kepatuhan"))
     if s.financial_impact:
-        add("FINANCIAL", "Possible financial or client impact")
+        add("FINANCIAL", tr("Possible financial or client impact", "Kemungkinan berdampak pada keuangan atau klien"))
 
     blocking = s.open_discrepancies or s.missing_documents or not s.sources_found
     if s.compliance_impact or s.financial_impact or (tight and blocking):
@@ -79,16 +95,43 @@ def assess(s: Signals) -> Assessment:
         rec = "VERIFY"
 
     steps = [
-        {"key": "verify", "label": "Verify against the source document", "done": False},
+        {"key": "verify", "label": tr(
+            "Verify against the source document",
+            "Verifikasi dengan dokumen sumber",
+        ), "done": False},
         {
             "key": "search",
-            "label": "Search documentation and your knowledge base",
+            "label": tr("Search documentation and your knowledge base", "Cari di dokumentasi dan knowledge base kamu"),
             "done": True,
-            "note": f"{_n(s.sources_found, 'matching source')} found",
+            "note": tr(
+                f"{_n(s.sources_found, 'matching source')} found",
+                f"{s.sources_found} sumber yang cocok ditemukan",
+            ),
         },
-        {"key": "alternatives", "label": "Check alternatives (other documents, earlier cases)", "done": False},
-        {"key": "ask", "label": "Ask an appropriate team member if applicable", "done": False},
-        {"key": "escalate", "label": "Escalate to your supervisor when necessary", "done": False},
-        {"key": "document", "label": "Document the question or escalation and the answer", "done": False},
+        {
+            "key": "alternatives",
+            "label": tr(
+                "Check alternatives (other documents, earlier cases)", "Cek alternatif (dokumen lain, kasus sebelumnya)"
+            ),
+            "done": False,
+        },
+        {
+            "key": "ask",
+            "label": tr("Ask an appropriate team member if applicable", "Tanya anggota tim yang tepat kalau perlu"),
+            "done": False,
+        },
+        {
+            "key": "escalate",
+            "label": tr("Escalate to your supervisor when necessary", "Eskalasi ke supervisor kalau diperlukan"),
+            "done": False,
+        },
+        {
+            "key": "document",
+            "label": tr(
+                "Document the question or escalation and the answer",
+                "Catat pertanyaan atau eskalasi beserta jawabannya",
+            ),
+            "done": False,
+        },
     ]
-    return Assessment(rec, HEADLINES[rec], triggers, steps)
+    return Assessment(rec, tr(HEADLINES[rec], HEADLINES_ID[rec]), triggers, steps)

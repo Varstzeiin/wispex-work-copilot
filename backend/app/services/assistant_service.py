@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.provider import ProviderError, get_provider
 from app.core.database import utcnow
+from app.core.i18n import language, tr
 from app.models import (
     Clarification,
     CommunicationDraft,
@@ -35,7 +36,7 @@ from app.rules.discrepancy_rules import FIELD_LABEL, TYPE_LABEL
 from app.rules.escalation_rules import Signals, assess
 from app.services import audit_service, knowledge_service
 from app.services.document_service import get_doc_settings
-from app.services.error_service import CATEGORY_LABEL, recurring_patterns
+from app.services.error_service import category_label, recurring_patterns
 from app.services.settings_service import get_user_settings
 from app.services.task_service import get_task_for_user, refresh_priority
 
@@ -265,12 +266,14 @@ def analyze_unsure(
         compliance_impact=compliance_impact,
         financial_impact=financial_impact,
     )
+    with language("en"):  # the question goes to someone else, so it is always English
+        draft = compose_question(task_context(db, user, task), greeting, field_name, issue, evidence, ask)
     return {
         "context": ctx,
         "knowledge": knowledge_service.public(results),
-        "knowledge_message": "" if results else knowledge_service.NO_SOURCE_MESSAGE,
+        "knowledge_message": "" if results else knowledge_service.no_source_message(),
         "assessment": assess(signals).as_dict(),
-        "draft": compose_question(ctx, greeting, field_name, issue, evidence, ask),
+        "draft": draft,
     }
 
 
@@ -280,7 +283,7 @@ def analyze_unsure(
 def get_clarification(db: Session, user: User, clarification_id: uuid.UUID) -> Clarification:
     c = db.get(Clarification, clarification_id)
     if c is None or c.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Question not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Question not found", "Pertanyaan tidak ditemukan"))
     return c
 
 
@@ -357,9 +360,15 @@ def answer_clarification(
     db: Session, user: User, c: Clarification, answer: str, save_to_knowledge: bool, verified: bool
 ) -> Clarification:
     if c.status != "OPEN":
-        raise HTTPException(status.HTTP_409_CONFLICT, "This question is already closed.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "This question is already closed.",
+            "Pertanyaan ini sudah ditutup.",
+        ))
     if not answer.strip():
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Record the answer you received.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Record the answer you received.",
+            "Catat jawaban yang kamu terima.",
+        ))
     c.status, c.answer, c.answered_at = "ANSWERED", answer.strip(), utcnow()
     who = f" from {c.asked_to}" if c.asked_to else ""
     _close_task_issue(db, user, c, f"Answer{who}: {answer.strip()[:300]}")
@@ -382,7 +391,10 @@ def answer_clarification(
 
 def cancel_clarification(db: Session, user: User, c: Clarification) -> Clarification:
     if c.status != "OPEN":
-        raise HTTPException(status.HTTP_409_CONFLICT, "This question is already closed.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "This question is already closed.",
+            "Pertanyaan ini sudah ditutup.",
+        ))
     c.status = "CANCELLED"
     _close_task_issue(db, user, c, "")
     audit_service.log(db, user.id, "CLARIFICATION_CANCELLED", "clarification", c.id,
@@ -441,8 +453,12 @@ def _escalation(ctx: dict, reason: str, note_text: str) -> tuple[str, str, str]:
         if not lines and not note_text:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                "No discrepancy is recorded for this task yet. Record it as an issue on the task, "
-                "or describe it in the note.",
+                tr(
+                    "No discrepancy is recorded for this task yet. Record it as an issue on the task, "
+                    "or describe it in the note.",
+                    "Belum ada perbedaan yang dicatat untuk task ini. Catat sebagai masalah di task, "
+                    "atau jelaskan di catatan.",
+                ),
             )
         shown = lines[:3] + ([f"There are {len(lines) - 3} more differences."] if len(lines) > 3 else [])
         return (
@@ -453,7 +469,10 @@ def _escalation(ctx: dict, reason: str, note_text: str) -> tuple[str, str, str]:
     if reason == "MISSING_DOCUMENTS":
         missing = ctx["missing_documents"]
         if not missing:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "This task has no missing documents.")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+                "This task has no missing documents.",
+                "Task ini tidak punya dokumen yang kurang.",
+            ))
         received = f" Received so far: {_join(ctx['available_documents'])}." if ctx["available_documents"] else ""
         return (
             f"I cannot complete this shipment because some documents are still missing.{detail}",
@@ -468,7 +487,10 @@ def _escalation(ctx: dict, reason: str, note_text: str) -> tuple[str, str, str]:
         if not fields and not note_text:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                "No hard-to-read field is recorded for this task. Describe it in the note.",
+                tr(
+                    "No hard-to-read field is recorded for this task. Describe it in the note.",
+                    "Belum ada field sulit dibaca yang dicatat untuk task ini. Jelaskan di catatan.",
+                ),
             )
         return (
             f"Some values in the documents are hard to read, so I cannot verify them with confidence.{detail}",
@@ -504,17 +526,30 @@ def generate_draft(
     error = None
     if kind == "CORRECTION":
         if not error_id:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose the error report this correction is about.")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+                "Choose the error report this correction is about.",
+                "Pilih laporan kesalahan yang dikoreksi.",
+            ))
         error = db.get(ErrorReport, error_id)
         if error is None or error.user_id != user.id:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Error report not found")
+            raise HTTPException(status.HTTP_404_NOT_FOUND, tr(
+                "Error report not found",
+                "Laporan kesalahan tidak ditemukan",
+            ))
         task_id = task_id or error.task_id
     task = get_task_for_user(db, user, task_id) if task_id else None
     if task is None and kind not in ("CORRECTION", "CLARIFICATION"):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose the task this message is about.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Choose the task this message is about.",
+            "Pilih task yang dibahas pesan ini.",
+        ))
     if task is None and kind == "CLARIFICATION" and not note.strip():
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose a task or describe what you need clarified.")
-    ctx = task_context(db, user, task)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Choose a task or describe what you need clarified.",
+            "Pilih task atau jelaskan apa yang perlu diklarifikasi.",
+        ))
+    with language("en"):  # the draft goes to someone else, so it is always English
+        ctx = task_context(db, user, task)
     ref = ctx["shipment_reference"] or (error.shipment_reference if error else "")
     note_text = sentence(note)
 
@@ -529,7 +564,10 @@ def generate_draft(
     elif kind == "MISSING_DOCUMENT":
         missing = ctx["missing_documents"]
         if not missing:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "This task has no missing documents.")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+                "This task has no missing documents.",
+                "Task ini tidak punya dokumen yang kurang.",
+            ))
         issue = f"I have not yet received the {_join(missing)}."
         if ctx["available_documents"]:
             evidence = f"Received so far: {_join(ctx['available_documents'])}."
@@ -538,7 +576,10 @@ def generate_draft(
         d = next((x for x in ctx["discrepancies"] if x["id"] == discrepancy_id), None) if discrepancy_id else None
         d = d or (ctx["discrepancies"][0] if ctx["discrepancies"] else None)
         if d is None:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "There is no open discrepancy for this shipment.")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+                "There is no open discrepancy for this shipment.",
+                "Tidak ada perbedaan terbuka untuk pengiriman ini.",
+            ))
         issue = (
             f"I found a difference in the {d['field_label'].lower()} "
             f"between the {d['document_a']} and the {d['document_b']}."
@@ -572,7 +613,7 @@ def generate_draft(
         evidence = sentence(", ".join(bits)) if bits else ""
         request = note_text or "I will send another update when the status changes."
     else:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown message type.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr("Unknown message type.", "Jenis pesan tidak dikenal."))
 
     parts = {
         "context": context,
@@ -602,7 +643,7 @@ def generate_draft(
 def get_draft(db: Session, user: User, draft_id: uuid.UUID) -> CommunicationDraft:
     d = db.get(CommunicationDraft, draft_id)
     if d is None or d.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Draft not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Draft not found", "Draft tidak ditemukan"))
     return d
 
 
@@ -628,7 +669,7 @@ def save_draft(
 
 def mark_sent(db: Session, user: User, d: CommunicationDraft) -> CommunicationDraft:
     if d.status != "DRAFT":
-        raise HTTPException(status.HTTP_409_CONFLICT, "This draft was already sent.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr("This draft was already sent.", "Draft ini sudah dikirim."))
     d.status, d.sent_at = "SENT_MANUALLY", utcnow()
     audit_service.log(db, user.id, "MESSAGE_MARKED_SENT", "draft", d.id,
                       previous_state={"status": "DRAFT"}, new_state={"status": "SENT_MANUALLY"})
@@ -674,7 +715,10 @@ def rewrite(db: Session, user: User, text: str) -> dict:
     if not knowledge_service.ai_assist_allowed(db, user):
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "AI writing help is off. Switch it on in Settings if your organization permits it.",
+            tr(
+                "AI writing help is off. Switch it on in Settings if your organization permits it.",
+                "Bantuan menulis AI sedang mati. Nyalakan di Pengaturan kalau organisasi kamu mengizinkan.",
+            ),
         )
     try:
         new_text = get_provider().rewrite_message(text)
@@ -688,13 +732,19 @@ def rewrite(db: Session, user: User, text: str) -> dict:
             "text": text,
             "changed": False,
             "kept_original": True,
-            "message": f"The AI changed or dropped a fact ({', '.join(lost[:5])}). Your original text is kept.",
+            "message": tr(
+                f"The AI changed or dropped a fact ({', '.join(lost[:5])}). Your original text is kept.",
+                f"AI mengubah atau menghilangkan fakta ({', '.join(lost[:5])}). Teks asli kamu tetap dipakai.",
+            ),
         }
     return {
         "text": new_text,
         "changed": new_text != text,
         "kept_original": False,
-        "message": "Wording improved. All numbers and references were kept. Review it before sending.",
+        "message": tr(
+            "Wording improved. All numbers and references were kept. Review it before sending.",
+            "Kalimat sudah dirapikan. Semua angka dan referensi tetap sama. Cek lagi sebelum mengirim.",
+        ),
     }
 
 
@@ -710,13 +760,27 @@ CATEGORY_CHECK = {
     "COMMUNICATION": "Open questions confirmed in writing",
     "TIME_MANAGEMENT": "Remaining time checked before starting the task",
 }
+CATEGORY_CHECK_ID = {
+    "TYPOGRAPHICAL": "Nilai yang diketik dibaca ulang dengan sumbernya sebelum disimpan",
+    "DATA_READING": "Setiap nilai dibaca dua kali di dokumen sumber sebelum diinput",
+    "DATA_ENTRY": "Data yang diinput dibandingkan dengan sumbernya, field per field",
+    "MISSING_INFORMATION": "Semua field wajib terisi sebelum dikirim",
+    "CROSS_DOCUMENT": "Nilai utama dibandingkan antara Invoice, Packing List dan BL/AWB",
+    "SOP_PROCEDURE": "Langkah SOP yang relevan dicek untuk jenis pengiriman ini",
+    "COMMUNICATION": "Pertanyaan terbuka dikonfirmasi secara tertulis",
+    "TIME_MANAGEMENT": "Sisa waktu dicek sebelum mulai task",
+}
 
 
 def _suggested_item(pattern: dict) -> Optional[str]:
     if pattern["kind"] == "FIELD":
         topic = pattern["key"]
-        return f"{topic[0].upper() + topic[1:]} checked against the source document, including the unit"
-    return CATEGORY_CHECK.get(pattern["key"])
+        return tr(
+            f"{topic[0].upper() + topic[1:]} checked against the source document, including the unit",
+            f"{topic[0].upper() + topic[1:]} dicek dengan dokumen sumber, termasuk satuannya",
+        )
+    key = pattern["key"]
+    return tr(CATEGORY_CHECK[key], CATEGORY_CHECK_ID[key]) if key in CATEGORY_CHECK else None
 
 
 def checklist_suggestions(db: Session, user: User, patterns: list[dict]) -> list[dict]:
@@ -741,31 +805,49 @@ def insights(db: Session, user: User, days: int = 30) -> dict:
     lines: list[str] = []
     if period:
         fields = Counter(" ".join(e.field_name.lower().split()) for e in period).most_common(3)
+        n = len(period)
+        top = ", ".join(f"{f} ({c})" for f, c in fields)
         lines.append(
-            f"{len(period)} error{'s' if len(period) != 1 else ''} in the last {days} days. Most frequent field"
-            f"{'s' if len(fields) > 1 else ''}: " + ", ".join(f"{f} ({n})" for f, n in fields) + "."
+            tr(
+                f"{n} error{'s' if n != 1 else ''} in the last {days} days. Most frequent field"
+                f"{'s' if len(fields) > 1 else ''}: {top}.",
+                f"{n} kesalahan dalam {days} hari terakhir. Field yang paling sering: {top}.",
+            )
         )
         cats = Counter(e.category for e in period).most_common(2)
-        lines.append("Most common type: " + ", ".join(f"{CATEGORY_LABEL[c].lower()} ({n})" for c, n in cats) + ".")
+        types = ", ".join(f"{category_label(c).lower()} ({count})" for c, count in cats)
+        lines.append(tr(f"Most common type: {types}.", f"Jenis paling sering: {types}."))
         causes = Counter(e.root_cause for e in period if e.root_cause).most_common(2)
         if causes:
+            roots = ", ".join(f"{category_label(c).lower()} ({count})" for c, count in causes)
             lines.append(
-                "Root causes you recorded most: "
-                + ", ".join(f"{CATEGORY_LABEL.get(c, c).lower()} ({n})" for c, n in causes)
-                + "."
+                tr(f"Root causes you recorded most: {roots}.", f"Akar masalah yang paling sering kamu catat: {roots}.")
             )
         missing_rca = sum(1 for e in period if e.status == "RESOLVED" and not e.root_cause)
         if missing_rca:
             lines.append(
-                f"{missing_rca} resolved error{'s have' if missing_rca > 1 else ' has'} no root-cause analysis yet. "
-                "Adding it makes patterns easier to see."
+                tr(
+                    f"{missing_rca} resolved error{'s have' if missing_rca > 1 else ' has'} no root-cause analysis "
+                    "yet. Adding it makes patterns easier to see.",
+                    f"{missing_rca} kesalahan yang sudah selesai belum punya analisis akar masalah. "
+                    "Menambahkannya membuat pola lebih mudah terlihat.",
+                )
             )
         prevention = [e.prevention_action for e in period if e.prevention_action.strip()]
         if prevention:
-            lines.append(f"You recorded {len(prevention)} prevention action{'s' if len(prevention) > 1 else ''}. "
-                         "Check that they are part of your routine.")
+            p = len(prevention)
+            lines.append(
+                tr(
+                    f"You recorded {p} prevention action{'s' if p > 1 else ''}. "
+                    "Check that they are part of your routine.",
+                    f"Kamu mencatat {p} langkah pencegahan. Pastikan sudah jadi bagian rutinitasmu.",
+                )
+            )
     else:
-        lines.append(f"No errors recorded in the last {days} days.")
+        lines.append(tr(
+            f"No errors recorded in the last {days} days.",
+            f"Tidak ada kesalahan dalam {days} hari terakhir.",
+        ))
 
     return {
         "days": days,
@@ -774,7 +856,10 @@ def insights(db: Session, user: User, days: int = 30) -> dict:
         "insights": lines,
         "patterns": patterns,
         "suggestions": checklist_suggestions(db, user, patterns),
-        "note": "Personal indicators for your own improvement. Not an official evaluation.",
+        "note": tr(
+            "Personal indicators for your own improvement. Not an official evaluation.",
+            "Indikator pribadi untuk perbaikan dirimu. Bukan penilaian resmi.",
+        ),
     }
 
 
@@ -784,14 +869,23 @@ def accept_suggestion(db: Session, user: User, key: str, item: str) -> list[str]
     errors = list(db.scalars(select(ErrorReport).where(ErrorReport.user_id == user.id)).all())
     current = {s["key"]: s for s in checklist_suggestions(db, user, recurring_patterns(errors, now))}
     if key not in current:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "This suggestion is no longer available.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr(
+            "This suggestion is no longer available.",
+            "Saran ini sudah tidak tersedia.",
+        ))
     text = " ".join((item or current[key]["item"]).split())[:120]
     if not text:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "The checklist item cannot be empty.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "The checklist item cannot be empty.",
+            "Item checklist tidak boleh kosong.",
+        ))
     doc_settings = get_doc_settings(db, user)
     checklist = list(doc_settings.final_checklist or [])
     if len(checklist) >= 25:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Your checklist already has 25 items. Remove one first.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Your checklist already has 25 items. Remove one first.",
+            "Checklist kamu sudah berisi 25 item. Hapus satu dulu.",
+        ))
     if text.lower() not in {i.lower() for i in checklist}:
         checklist.append(text)
     doc_settings.final_checklist = checklist

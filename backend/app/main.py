@@ -29,6 +29,7 @@ from app.api import (
 )
 from app.core.config import get_settings
 from app.core.database import get_db, init_db
+from app.core.i18n import language, request_language, set_language, tr
 from app.core.readiness import database_hint, log_config_warnings, readiness
 from app.core.security import require_csrf_header
 
@@ -64,12 +65,14 @@ app.add_middleware(
     allow_origins=[o.strip() for o in config.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allow_headers=["Content-Type", "X-Requested-With"],
+    allow_headers=["Content-Type", "X-Requested-With", "X-Language"],
 )
 
 
 @app.middleware("http")
 async def security_headers_and_timing(request: Request, call_next):
+    # Language for server-made text in this request (see core/i18n.py)
+    set_language(request_language(request.headers.get("x-language")))
     request_id = uuid.uuid4().hex[:12]
     started = time.perf_counter()
     response = await call_next(request)
@@ -97,17 +100,21 @@ async def validation_error(_: Request, exc: RequestValidationError):
     for err in exc.errors()[:5]:
         field = ".".join(str(p) for p in err["loc"] if p not in ("body", "query"))
         problems.append(f"{field}: {err['msg']}" if field else err["msg"])
-    return JSONResponse({"message": "Please check the form. " + "; ".join(problems)}, status_code=422)
+    prefix = tr("Please check the form. ", "Silakan cek isian formulir. ")
+    return JSONResponse({"message": prefix + "; ".join(problems)}, status_code=422)
 
 
 @app.exception_handler(Exception)
 async def unexpected_error(request: Request, exc: Exception):
     # Technical details stay in the server log. The user gets a safe, friendly message.
     logger.exception("Unhandled error on %s %s", request.method, request.url.path)
-    return JSONResponse(
-        {"message": "Something went wrong. Nothing was marked as completed. Please try again."},
-        status_code=500,
-    )
+    # This handler runs outside the request middleware, so the language is read from the header here
+    with language(request_language(request.headers.get("x-language"))):
+        message = tr(
+            "Something went wrong. Nothing was marked as completed. Please try again.",
+            "Terjadi kesalahan. Tidak ada yang ditandai selesai. Silakan coba lagi.",
+        )
+    return JSONResponse({"message": message}, status_code=500)
 
 
 protected = [Depends(require_csrf_header)]

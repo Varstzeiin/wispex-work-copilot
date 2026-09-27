@@ -3,7 +3,7 @@
  * so the httpOnly session cookie is sent automatically and never touched by scripts.
  */
 
-import { t } from "@/lib/i18n";
+import { getLang, t } from "@/lib/i18n";
 
 export class ApiError extends Error {
   status: number;
@@ -25,6 +25,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       headers: {
         // Required by the backend CSRF check for any state-changing request
         "X-Requested-With": "wispex",
+        // Text made by the server (reasons, summaries, messages) follows the chosen language
+        "X-Language": getLang(),
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,

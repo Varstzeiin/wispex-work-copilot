@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
+from app.core.i18n import get_language, tr
 from app.models import (
     AuditLog,
     ErrorReport,
@@ -23,7 +24,7 @@ from app.models import (
     WeeklyReview,
 )
 from app.models.task import CLOSED_STATUSES
-from app.services.error_service import CATEGORY_LABEL, number_word
+from app.services.error_service import category_label, number_word
 from app.services.planner_service import build_plan
 from app.services.settings_service import get_user_settings
 
@@ -37,6 +38,20 @@ ISSUE_LABEL = {
     "COMPLIANCE_QUESTION": "compliance questions",
     "OTHER": "other issues",
 }
+ISSUE_LABEL_ID = {
+    "QUANTITY_MISMATCH": "perbedaan jumlah",
+    "WEIGHT_MISMATCH": "verifikasi berat",
+    "DESCRIPTION_MISMATCH": "perbedaan deskripsi",
+    "VALUE_MISMATCH": "perbedaan nilai",
+    "MISSING_INFORMATION": "informasi yang kurang",
+    "LOW_CONFIDENCE": "dokumen yang sulit dibaca",
+    "COMPLIANCE_QUESTION": "pertanyaan kepatuhan",
+    "OTHER": "masalah lain",
+}
+
+
+def _issue_label(kind: str) -> str:
+    return tr(ISSUE_LABEL.get(kind, kind.lower()), ISSUE_LABEL_ID.get(kind, kind.lower()))
 
 
 def local_today(settings: UserSettings) -> date:
@@ -136,14 +151,14 @@ def recurring_issue(db: Session, user: User, end: datetime) -> dict | None:
     if fields:
         topic, count = fields.most_common(1)[0]
         if count >= 2:
-            return {"source": "errors", "label": f"{topic} verification", "count": count}
+            return {"source": "errors", "label": tr(f"{topic} verification", f"verifikasi {topic}"), "count": count}
     if stats["issue_types"]:
         kind, count = Counter(stats["issue_types"]).most_common(1)[0]
         if count >= 2:
-            return {"source": "issues", "label": ISSUE_LABEL.get(kind, kind.lower()), "count": count}
+            return {"source": "issues", "label": _issue_label(kind), "count": count}
     if stats["error_categories"]:
         cat, count = Counter(stats["error_categories"]).most_common(1)[0]
-        return {"source": "errors", "label": CATEGORY_LABEL[cat].lower(), "count": count}
+        return {"source": "errors", "label": category_label(cat).lower(), "count": count}
     return None
 
 
@@ -153,6 +168,8 @@ def _plural(n: int, singular: str, plural: str | None = None) -> str:
 
 
 def shift_summary(stats: dict, recurring: dict | None, is_today: bool) -> str:
+    if get_language() == "id":
+        return _shift_summary_id(stats, recurring, is_today)
     when = "Today" if is_today else "That day"
     parts = [f"{when} you completed {_plural(stats['tasks_completed'], 'task')}."]
     e = stats["errors"]
@@ -169,6 +186,20 @@ def shift_summary(stats: dict, recurring: dict | None, is_today: bool) -> str:
     if recurring:
         parts.append(f"Your most frequent issue was {recurring['label']}.")
         parts.append(f"Tomorrow, prioritise reviewing the {recurring['label']} process.")
+    return " ".join(parts)
+
+
+def _shift_summary_id(stats: dict, recurring: dict | None, is_today: bool) -> str:
+    when = "Hari ini" if is_today else "Hari itu"
+    parts = [f"{when} kamu menyelesaikan {stats['tasks_completed']} task."]
+    parts.append(f"{stats['errors']} kesalahan tercatat." if stats["errors"] else "Tidak ada kesalahan yang tercatat.")
+    if stats["discrepancies"]:
+        parts.append(f"{stats['discrepancies']} perbedaan tercatat.")
+    if stats["escalations"]:
+        parts.append(f"{stats['escalations']} task dieskalasi.")
+    if recurring:
+        parts.append(f"Masalah yang paling sering muncul adalah {recurring['label']}.")
+        parts.append(f"Besok, dahulukan meninjau proses {recurring['label']}.")
     return " ".join(parts)
 
 

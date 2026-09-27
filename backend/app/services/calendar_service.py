@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import utcnow
+from app.core.i18n import tr
 from app.core.security import decrypt, encrypt
 from app.integrations.google_calendar import (
     CalendarProviderError,
@@ -64,7 +65,10 @@ def start_google_connect(db: Session, user: User) -> str:
     if not get_settings().google_calendar_configured:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "Google Calendar integration is not configured on this server.",
+            tr(
+                "Google Calendar integration is not configured on this server.",
+                "Integrasi Google Calendar belum diatur di server ini.",
+            ),
         )
     conn = db.get(CalendarConnection, user.id) or CalendarConnection(user_id=user.id)
     conn.oauth_state = secrets.token_urlsafe(32)
@@ -76,10 +80,16 @@ def start_google_connect(db: Session, user: User) -> str:
 def finish_google_connect(db: Session, user: User, state: str, code: str) -> None:
     conn = db.get(CalendarConnection, user.id)
     if conn is None or not state or not secrets.compare_digest(conn.oauth_state, state):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Calendar connection expired. Please try again.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Calendar connection expired. Please try again.",
+            "Koneksi kalender kedaluwarsa. Silakan coba lagi.",
+        ))
     tokens = google_client.exchange_code(code)
     if not tokens.get("refresh_token"):
-        raise CalendarProviderError("Google did not return offline access. Please connect again.")
+        raise CalendarProviderError(tr(
+            "Google did not return offline access. Please connect again.",
+            "Google tidak memberi akses offline. Silakan hubungkan lagi.",
+        ))
     conn.encrypted_refresh_token = encrypt(tokens["refresh_token"])
     conn.encrypted_access_token = encrypt(tokens["access_token"])
     conn.access_token_expires_at = tokens["expires_at"]
@@ -115,7 +125,10 @@ def upsert_task_event(
 ) -> CalendarEvent:
     """Create or update the single calendar event linked to a task (idempotent)."""
     if task.submission_deadline is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Set a submission deadline first.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Set a submission deadline first.",
+            "Atur deadline pengiriman dulu.",
+        ))
 
     reminders = sorted(set(reminder_minutes or DEFAULT_REMINDERS), reverse=True)[:5]
     event = get_event_for_task(db, task)
@@ -215,7 +228,10 @@ def resync_events(db: Session, user: User) -> dict:
 def preview_event(task: Task) -> CalendarEvent:
     """An unsaved event with default reminders, used for ICS download before saving."""
     if task.submission_deadline is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Set a submission deadline first.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Set a submission deadline first.",
+            "Atur deadline pengiriman dulu.",
+        ))
     return CalendarEvent(
         title=event_title(task),
         event_start=task.submission_deadline,

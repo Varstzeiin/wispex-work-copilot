@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.ai.embeddings import cosine, get_embedder
 from app.ai.provider import ProviderError, get_provider
 from app.core.database import get_or_create_user_row
+from app.core.i18n import tr
 from app.models import (
     AssistantSettings,
     Clarification,
@@ -32,10 +33,19 @@ from app.models import (
 )
 from app.services import audit_service
 
-NO_SOURCE_MESSAGE = "No reliable source found. Please verify with the appropriate person."
-NOT_ANSWERED_MESSAGE = (
-    "The sources found do not clearly answer this question. Please verify with the appropriate person."
-)
+
+def no_source_message() -> str:
+    return tr(
+        "No reliable source found. Please verify with the appropriate person.",
+        "Belum ada sumber terpercaya. Silakan verifikasi ke orang yang tepat.",
+    )
+
+
+def not_answered_message() -> str:
+    return tr(
+        "The sources found do not clearly answer this question. Please verify with the appropriate person.",
+        "Sumber yang ditemukan belum menjawab pertanyaan ini dengan jelas. Silakan verifikasi ke orang yang tepat.",
+    )
 
 # Knowledge-first order: training -> SOP -> personal notes -> resolved cases -> senior notes.
 # Used as a tie-break and shown to the user so they know where an answer came from.
@@ -317,13 +327,17 @@ def ask(db: Session, user: User, question: str) -> dict:
     results = search(db, user, question, limit=MAX_SOURCES)
     base = {"question": question, "sources": public(results), "answer": "", "used_source_ids": [], "ai_used": False}
     if not results:
-        return {**base, "status": "NO_SOURCE", "message": NO_SOURCE_MESSAGE}
+        return {**base, "status": "NO_SOURCE", "message": no_source_message()}
     if not ai_assist_allowed(db, user):
         return {
             **base,
             "status": "SOURCES_ONLY",
-            "message": "These are the closest matches in your trusted sources. Read them and decide if they answer "
-            "your question. If not, verify with the appropriate person.",
+            "message": tr(
+                "These are the closest matches in your trusted sources. Read them and decide if they answer "
+                "your question. If not, verify with the appropriate person.",
+                "Ini hasil paling mirip dari sumber terpercaya kamu. Baca dan putuskan apakah sudah menjawab "
+                "pertanyaanmu. Kalau belum, verifikasi ke orang yang tepat.",
+            ),
         }
 
     numbered = [
@@ -332,17 +346,26 @@ def ask(db: Session, user: User, question: str) -> dict:
     try:
         answer = get_provider().answer_knowledge_question(question, numbered)
     except ProviderError as exc:
-        return {**base, "status": "SOURCES_ONLY", "message": f"{exc} The matching sources are shown below."}
+        return {**base, "status": "SOURCES_ONLY", "message": f"{exc} " + tr(
+            "The matching sources are shown below.",
+            "Sumber yang cocok ditampilkan di bawah.",
+        )}
     audit_service.log(db, user.id, "KNOWLEDGE_ANSWER_GENERATED", "assistant", None,
                       metadata={"sources": len(results), "answered": answer.sufficient})
     db.commit()
     if not answer.sufficient:
-        return {**base, "status": "NOT_ANSWERED", "message": NOT_ANSWERED_MESSAGE, "ai_used": True}
+        return {**base, "status": "NOT_ANSWERED", "message": not_answered_message(), "ai_used": True}
     used = [str(results[int(i) - 1]["id"]) for i in answer.used_source_ids]
     unverified = any(not results[int(i) - 1]["verified"] for i in answer.used_source_ids)
-    message = "Generated only from your sources. Check the cited sources before relying on it."
+    message = tr(
+        "Generated only from your sources. Check the cited sources before relying on it.",
+        "Dibuat hanya dari sumber kamu. Cek sumber yang dikutip sebelum memakainya.",
+    )
     if unverified:
-        message += " At least one cited source is a personal note that has not been confirmed."
+        message += tr(
+            " At least one cited source is a personal note that has not been confirmed.",
+            " Minimal satu sumber yang dikutip adalah catatan pribadi yang belum dikonfirmasi.",
+        )
     return {
         **base,
         "status": "ANSWERED",
@@ -359,7 +382,10 @@ def ask(db: Session, user: User, question: str) -> dict:
 def get_note(db: Session, user: User, note_id: uuid.UUID) -> KnowledgeNote:
     note = db.get(KnowledgeNote, note_id)
     if note is None or note.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Knowledge note not found")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr(
+            "Knowledge note not found",
+            "Catatan pengetahuan tidak ditemukan",
+        ))
     return note
 
 

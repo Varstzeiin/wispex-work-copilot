@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.ai.provider import get_provider
 from app.core.config import get_settings
 from app.core.database import get_db, utcnow
+from app.core.i18n import tr
 from app.core.security import get_current_user
 from app.demo.sample_documents import SAMPLES, sample_pdf
 from app.models import Discrepancy, Document, Task, User
@@ -82,11 +83,17 @@ def update_document_settings(
     if data.ai_processing_allowed is not None and data.ai_processing_allowed != s.ai_processing_allowed:
         if data.ai_processing_allowed:
             if user.is_demo:
-                raise HTTPException(status.HTTP_409_CONFLICT, "Demo accounts never send documents to an AI provider.")
+                raise HTTPException(status.HTTP_409_CONFLICT, tr(
+                    "Demo accounts never send documents to an AI provider.",
+                    "Akun demo tidak pernah mengirim dokumen ke penyedia AI.",
+                ))
             if not data.confirm_policy:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
-                    "Confirm that your organization permits this application and AI provider to process documents.",
+                    tr(
+                        "Confirm that your organization permits this application and AI provider to process documents.",
+                        "Konfirmasi bahwa organisasi kamu mengizinkan aplikasi dan penyedia AI ini memproses dokumen.",
+                    ),
                 )
             s.ai_permission_confirmed_at = utcnow()
         s.ai_processing_allowed = data.ai_processing_allowed
@@ -232,7 +239,10 @@ def shipment_detail(reference: str, user: User = Depends(get_current_user), db: 
         .order_by(Document.document_type, Document.uploaded_at)
     ).all()
     if not docs:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No documents for this shipment.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr(
+            "No documents for this shipment.",
+            "Belum ada dokumen untuk pengiriman ini.",
+        ))
     task = ds.task_for_shipment(db, user, reference)
     comparisons, notes = ds.shipment_comparisons(db, user, reference)
     by_id = {d.id: d for d in docs}
@@ -320,7 +330,10 @@ def get_document(document_id: uuid.UUID, user: User = Depends(get_current_user),
 def download(document_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     doc = ds.get_document_for_user(db, user, document_id)
     if doc.storage_key is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "This demo document has no stored file.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr(
+            "This demo document has no stored file.",
+            "Dokumen demo ini tidak punya file tersimpan.",
+        ))
     try:
         data = get_storage().load(doc.storage_key)
     except StorageError as exc:
@@ -413,7 +426,7 @@ def resolve(
 ):
     d = db.get(Discrepancy, discrepancy_id)
     if d is None or d.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Discrepancy not found.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Discrepancy not found.", "Perbedaan tidak ditemukan."))
     ds.resolve_discrepancy(db, user, d, data.status, data.note)
     docs = {x.id: x for x in db.scalars(select(Document).where(Document.id.in_([d.document_a_id, d.document_b_id])))}
     return ds.discrepancy_out(d, docs)
@@ -426,7 +439,7 @@ def resolve(
 def sample(key: str, user: User = Depends(get_current_user)):
     """Fictional sample PDFs to try the workflow without real company data."""
     if key not in SAMPLES:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown sample.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Unknown sample.", "Sampel tidak dikenal."))
     filename, data = sample_pdf(key)
     return Response(
         data, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{filename}"'}

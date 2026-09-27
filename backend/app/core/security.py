@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db, utcnow
+from app.core.i18n import tr
 from app.models import User
 
 AUTH_COOKIE = "wispex_session"
@@ -74,7 +75,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     user_id = _decode_token(token) if token else None
     user = db.get(User, user_id) if user_id else None
     if user is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please sign in again.")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, tr("Please sign in again.", "Silakan masuk lagi."))
     return user
 
 
@@ -89,7 +90,10 @@ async def require_csrf_header(request: Request) -> None:
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return
     if request.cookies.get(AUTH_COOKIE) and request.headers.get(CSRF_HEADER) != "wispex":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Request blocked by CSRF protection.")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, tr(
+            "Request blocked by CSRF protection.",
+            "Permintaan diblokir oleh proteksi CSRF.",
+        ))
 
 
 # ---------- Rate limiting (in-memory, per process) ----------
@@ -112,7 +116,10 @@ class RateLimiter:
             q.popleft()
         if len(q) >= self.max_calls:
             raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS, "Too many attempts. Please wait a minute."
+                status.HTTP_429_TOO_MANY_REQUESTS, tr(
+                    "Too many attempts. Please wait a minute.",
+                    "Terlalu banyak percobaan. Tunggu sebentar.",
+                )
             )
         q.append(now)
 

@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_or_create_user_row, utcnow
+from app.core.i18n import tr
 from app.models import AutomationSettings, ErrorReport, Task, User, UserSettings
 from app.services.planner_service import _parse_hhmm, shift_window
 from app.services.settings_service import get_user_settings
@@ -22,12 +23,31 @@ from app.services.settings_service import get_user_settings
 HISTORY_DAYS = 56  # 8 weeks
 MIN_SAMPLE = 5  # never draw a conclusion from fewer tasks than this
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+WEEKDAYS_ID = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 MISMATCH_LABEL = {
     "QUANTITY_MISMATCH": "Quantity",
     "WEIGHT_MISMATCH": "Weight",
     "DESCRIPTION_MISMATCH": "Description",
     "VALUE_MISMATCH": "Value",
 }
+MISMATCH_LABEL_ID = {
+    "QUANTITY_MISMATCH": "Jumlah",
+    "WEIGHT_MISMATCH": "Berat",
+    "DESCRIPTION_MISMATCH": "Deskripsi",
+    "VALUE_MISMATCH": "Nilai",
+}
+
+
+def _weekday(index: int) -> str:
+    return tr(WEEKDAYS[index], WEEKDAYS_ID[index])
+
+
+def _day_label(day: date) -> str:
+    return tr(f"{WEEKDAYS[day.weekday()]} {day:%d %b}", f"{WEEKDAYS_ID[day.weekday()]} {day:%d/%m}")
+
+
+def _mismatch(kind: str) -> str:
+    return tr(MISMATCH_LABEL[kind], MISMATCH_LABEL_ID[kind])
 
 
 def get_automation_settings(db: Session, user: User) -> AutomationSettings:
@@ -151,7 +171,7 @@ def forecast(db: Session, user: User, days: int = 5) -> dict:
             out_days.append(
                 {
                     "date": day.isoformat(),
-                    "label": "Today" if day == today else f"{WEEKDAYS[day.weekday()]} {day:%d %b}",
+                    "label": tr("Today", "Hari ini") if day == today else _day_label(day),
                     "known_minutes": known,
                     "known_tasks": len(tasks),
                     "typical_minutes": usual,
@@ -170,16 +190,31 @@ def forecast(db: Session, user: User, days: int = 5) -> dict:
     over = [d for d in out_days if d["status"] == "OVER"]
     if over:
         first_over = over[0]
+        label = first_over["label"]
         advice.append(
-            f"{first_over['label']} looks over capacity. Consider starting some of its tasks earlier, and tell "
-            "your supervisor early if you will need support. Work is never reassigned automatically."
+            tr(
+                f"{label} looks over capacity. Consider starting some of its tasks earlier, and tell "
+                "your supervisor early if you will need support. Work is never reassigned automatically.",
+                f"{label} terlihat melebihi kapasitas. Pertimbangkan mulai sebagian task-nya lebih awal, dan "
+                "kabari supervisor sejak awal kalau butuh bantuan. Pekerjaan tidak pernah dialihkan otomatis.",
+            )
         )
     if unscheduled:
-        advice.append(f"{len(unscheduled)} open task(s) have no deadline and are not in the forecast.")
-    if cal["tasks"] >= MIN_SAMPLE and cal["ratio"] >= 1.15:
+        n = len(unscheduled)
         advice.append(
-            f"Your tasks usually take {round((cal['ratio'] - 1) * 100)}% longer than estimated, "
-            "so the forecast already scales your estimates up."
+            tr(
+                f"{n} open task(s) have no deadline and are not in the forecast.",
+                f"{n} task terbuka belum punya deadline dan tidak masuk perkiraan.",
+            )
+        )
+    if cal["tasks"] >= MIN_SAMPLE and cal["ratio"] >= 1.15:
+        pct = round((cal["ratio"] - 1) * 100)
+        advice.append(
+            tr(
+                f"Your tasks usually take {pct}% longer than estimated, "
+                "so the forecast already scales your estimates up.",
+                f"Task kamu biasanya {pct}% lebih lama dari estimasi, jadi perkiraan ini sudah menaikkan estimasimu.",
+            )
         )
 
     return {
@@ -189,15 +224,30 @@ def forecast(db: Session, user: User, days: int = 5) -> dict:
         "unscheduled_tasks": len(unscheduled),
         "history_tasks": len(history),
         "advice": advice,
-        "note": "A forecast from your own history and deadlines. It can be wrong: new urgent work is not known yet.",
+        "note": tr(
+            "A forecast from your own history and deadlines. It can be wrong: new urgent work is not known yet.",
+            "Perkiraan dari riwayat dan deadline kamu sendiri. Bisa meleset karena pekerjaan mendesak baru belum "
+            "diketahui.",
+        ),
     }
 
 
 def _day_explanation(count: int, known: int, usual: int, capacity: int, status: str) -> str:
-    parts = [f"{count} task(s) due, about {known} min" if count else "No tasks due yet"]
+    if count:
+        parts = [tr(f"{count} task(s) due, about {known} min", f"{count} task jatuh tempo, sekitar {known} menit")]
+    else:
+        parts = [tr("No tasks due yet", "Belum ada task yang jatuh tempo")]
     if usual > known:
-        parts.append(f"a typical day like this needs about {usual} min")
-    parts.append(f"{capacity} min of shift available" if capacity else "outside your shift")
+        parts.append(
+            tr(
+                f"a typical day like this needs about {usual} min",
+                f"hari seperti ini biasanya butuh sekitar {usual} menit",
+            )
+        )
+    if capacity:
+        parts.append(tr(f"{capacity} min of shift available", f"tersedia {capacity} menit shift"))
+    else:
+        parts.append(tr("outside your shift", "di luar shift kamu"))
     return ". ".join(p[0].upper() + p[1:] for p in parts) + "."
 
 
@@ -227,20 +277,30 @@ def patterns(db: Session, user: User, days: int = 90) -> dict:
     findings: list[dict] = []
 
     # 1. Estimate accuracy per transport mode
-    for mode, label in (("AIR", "Air"), ("SEA", "Sea")):
+    for mode, label, label_id in (("AIR", "Air", "udara"), ("SEA", "Sea", "laut")):
         ratio, n = _ratio([t for t in completed if _mode(t) == mode])
         if n >= MIN_SAMPLE and ratio >= 1.2:
             est = statistics.median(t.estimated_minutes for t in completed if _mode(t) == mode and t.actual_minutes)
+            pct, better, old = round((ratio - 1) * 100), round(est * ratio), round(est)
             findings.append(
                 {
                     "key": f"ESTIMATE:{mode}",
                     "kind": "ESTIMATE",
                     "scope": "all",
-                    "title": f"{label} shipments take longer than estimated",
-                    "evidence": f"Median {round((ratio - 1) * 100)}% over the estimate across {n} completed "
-                    f"{label.lower()} tasks.",
-                    "suggestion": f"Use about {round(est * ratio)} min instead of {round(est)} min when you estimate "
-                    f"{label.lower()} tasks, so your daily plan stays realistic.",
+                    "title": tr(
+                        f"{label} shipments take longer than estimated",
+                        f"Pengiriman {label_id} butuh waktu lebih lama dari estimasi",
+                    ),
+                    "evidence": tr(
+                        f"Median {pct}% over the estimate across {n} completed {label.lower()} tasks.",
+                        f"Median {pct}% di atas estimasi dari {n} task {label_id} yang selesai.",
+                    ),
+                    "suggestion": tr(
+                        f"Use about {better} min instead of {old} min when you estimate "
+                        f"{label.lower()} tasks, so your daily plan stays realistic.",
+                        f"Pakai sekitar {better} menit, bukan {old} menit, saat mengestimasi task {label_id}, "
+                        "supaya rencana harian tetap realistis.",
+                    ),
                 }
             )
 
@@ -252,10 +312,19 @@ def patterns(db: Session, user: User, days: int = 90) -> dict:
                 "key": "MISSING:all",
                 "kind": "MISSING_DOCUMENTS",
                 "scope": "all",
-                "title": "Documents are often missing when work starts",
-                "evidence": f"{len(with_missing)} of {len(tasks)} tasks in the last {days} days had missing documents.",
-                "suggestion": "Request the complete document set (Invoice, Packing List, BL/AWB) as soon as a "
-                "shipment is announced, not when you start the task.",
+                "title": tr(
+                    "Documents are often missing when work starts", "Dokumen sering belum lengkap saat mulai dikerjakan"
+                ),
+                "evidence": tr(
+                    f"{len(with_missing)} of {len(tasks)} tasks in the last {days} days had missing documents.",
+                    f"{len(with_missing)} dari {len(tasks)} task dalam {days} hari terakhir kekurangan dokumen.",
+                ),
+                "suggestion": tr(
+                    "Request the complete document set (Invoice, Packing List, BL/AWB) as soon as a "
+                    "shipment is announced, not when you start the task.",
+                    "Minta dokumen lengkap (Invoice, Packing List, BL/AWB) begitu pengiriman diumumkan, "
+                    "bukan saat mulai mengerjakan task.",
+                ),
             }
         )
 
@@ -269,10 +338,20 @@ def patterns(db: Session, user: User, days: int = 90) -> dict:
                     "key": f"MISMATCH:{kind}",
                     "kind": "DISCREPANCY",
                     "scope": "all",
-                    "title": f"{MISMATCH_LABEL[kind]} is your most common document discrepancy",
-                    "evidence": f"{count} {MISMATCH_LABEL[kind].lower()} mismatches recorded in the last {days} days.",
-                    "suggestion": f"Compare {MISMATCH_LABEL[kind].lower()} across Invoice, Packing List and BL/AWB "
-                    "first, before entering other fields.",
+                    "title": tr(
+                        f"{MISMATCH_LABEL[kind]} is your most common document discrepancy",
+                        f"{_mismatch(kind)} adalah perbedaan dokumen yang paling sering",
+                    ),
+                    "evidence": tr(
+                        f"{count} {MISMATCH_LABEL[kind].lower()} mismatches recorded in the last {days} days.",
+                        f"{count} perbedaan {_mismatch(kind).lower()} tercatat dalam {days} hari terakhir.",
+                    ),
+                    "suggestion": tr(
+                        f"Compare {MISMATCH_LABEL[kind].lower()} across Invoice, Packing List and BL/AWB "
+                        "first, before entering other fields.",
+                        f"Bandingkan {_mismatch(kind).lower()} di Invoice, Packing List dan BL/AWB "
+                        "lebih dulu, sebelum mengisi field lain.",
+                    ),
                 }
             )
 
@@ -289,10 +368,17 @@ def patterns(db: Session, user: User, days: int = 90) -> dict:
                     "key": "ERRORS:late_shift",
                     "kind": "TIMING",
                     "scope": "all",
-                    "title": "Errors cluster at the end of your shift",
-                    "evidence": f"{len(late)} of {len(hours)} errors came from work submitted in the last two "
-                    "hours of your shift.",
-                    "suggestion": "Plan a short second check for work you submit near the end of your shift.",
+                    "title": tr("Errors cluster at the end of your shift", "Kesalahan menumpuk di akhir shift"),
+                    "evidence": tr(
+                        f"{len(late)} of {len(hours)} errors came from work submitted in the last two "
+                        "hours of your shift.",
+                        f"{len(late)} dari {len(hours)} kesalahan berasal dari pekerjaan yang dikirim di dua jam "
+                        "terakhir shift.",
+                    ),
+                    "suggestion": tr(
+                        "Plan a short second check for work you submit near the end of your shift.",
+                        "Siapkan pengecekan kedua yang singkat untuk pekerjaan yang dikirim menjelang akhir shift.",
+                    ),
                 }
             )
 
@@ -310,10 +396,17 @@ def patterns(db: Session, user: User, days: int = 90) -> dict:
                     "key": f"PEAK:{busiest}",
                     "kind": "WORKLOAD",
                     "scope": "all",
-                    "title": f"{WEEKDAYS[busiest]} is your busiest day",
-                    "evidence": f"{share}% of your processing time in the last {days} days fell on "
-                    f"{WEEKDAYS[busiest]}s.",
-                    "suggestion": f"Keep {WEEKDAYS[busiest]}s free of non-urgent work such as learning or admin.",
+                    "title": tr(
+                        f"{WEEKDAYS[busiest]} is your busiest day", f"{_weekday(busiest)} adalah hari tersibuk kamu"
+                    ),
+                    "evidence": tr(
+                        f"{share}% of your processing time in the last {days} days fell on {WEEKDAYS[busiest]}s.",
+                        f"{share}% waktu pengerjaan kamu dalam {days} hari terakhir jatuh di hari {_weekday(busiest)}.",
+                    ),
+                    "suggestion": tr(
+                        f"Keep {WEEKDAYS[busiest]}s free of non-urgent work such as learning or admin.",
+                        f"Kosongkan hari {_weekday(busiest)} dari pekerjaan tidak mendesak seperti belajar atau admin.",
+                    ),
                 }
             )
 
@@ -327,7 +420,10 @@ def patterns(db: Session, user: User, days: int = 90) -> dict:
         "tasks_analysed": len(tasks),
         "client_patterns_allowed": auto.client_patterns_allowed,
         "findings": [{**f, "handled": f["key"] in handled} for f in findings],
-        "note": "Patterns from your own records. They describe what happened, not who is to blame.",
+        "note": tr(
+            "Patterns from your own records. They describe what happened, not who is to blame.",
+            "Pola dari catatan kamu sendiri. Ini menggambarkan apa yang terjadi, bukan siapa yang salah.",
+        ),
     }
 
 
@@ -350,10 +446,15 @@ def _client_findings(tasks: list[Task], days: int) -> list[dict]:
                     "key": f"MISSING:{cid}",
                     "kind": "MISSING_DOCUMENTS",
                     "scope": name,
-                    "title": f"{name}: documents often arrive late",
-                    "evidence": f"{len(miss)} of {len(items)} {name} tasks in the last {days} days had "
-                    "missing documents.",
-                    "suggestion": f"Ask {name} (or their forwarder) for the complete document set at booking.",
+                    "title": tr(f"{name}: documents often arrive late", f"{name}: dokumen sering datang terlambat"),
+                    "evidence": tr(
+                        f"{len(miss)} of {len(items)} {name} tasks in the last {days} days had missing documents.",
+                        f"{len(miss)} dari {len(items)} task {name} dalam {days} hari terakhir kekurangan dokumen.",
+                    ),
+                    "suggestion": tr(
+                        f"Ask {name} (or their forwarder) for the complete document set at booking.",
+                        f"Minta {name} (atau forwarder-nya) mengirim dokumen lengkap saat booking.",
+                    ),
                 }
             )
         mism = Counter(x for t in items for x in _issue_types(t) if x in MISMATCH_LABEL)
@@ -365,10 +466,18 @@ def _client_findings(tasks: list[Task], days: int) -> list[dict]:
                         "key": f"MISMATCH:{cid}:{kind}",
                         "kind": "DISCREPANCY",
                         "scope": name,
-                        "title": f"{name}: frequent {MISMATCH_LABEL[kind].lower()} discrepancies",
-                        "evidence": f"{count} {MISMATCH_LABEL[kind].lower()} mismatches on {len(items)} {name} tasks.",
-                        "suggestion": f"For {name} shipments, check {MISMATCH_LABEL[kind].lower()} across all "
-                        "documents first.",
+                        "title": tr(
+                            f"{name}: frequent {MISMATCH_LABEL[kind].lower()} discrepancies",
+                            f"{name}: sering ada perbedaan {_mismatch(kind).lower()}",
+                        ),
+                        "evidence": tr(
+                            f"{count} {MISMATCH_LABEL[kind].lower()} mismatches on {len(items)} {name} tasks.",
+                            f"{count} perbedaan {_mismatch(kind).lower()} pada {len(items)} task {name}.",
+                        ),
+                        "suggestion": tr(
+                            f"For {name} shipments, check {MISMATCH_LABEL[kind].lower()} across all documents first.",
+                            f"Untuk pengiriman {name}, cek {_mismatch(kind).lower()} di semua dokumen lebih dulu.",
+                        ),
                     }
                 )
         done = [t for t in items if t.status == "COMPLETED" and t.submission_deadline and t.completed_at]
@@ -380,9 +489,15 @@ def _client_findings(tasks: list[Task], days: int) -> list[dict]:
                         "key": f"ONTIME:{cid}",
                         "kind": "DEADLINES",
                         "scope": name,
-                        "title": f"{name}: deadlines are harder to meet",
-                        "evidence": f"{on_time} of {len(done)} {name} tasks were completed before the deadline.",
-                        "suggestion": f"Start {name} tasks earlier in the day, and flag missing items to them early.",
+                        "title": tr(f"{name}: deadlines are harder to meet", f"{name}: deadline lebih sulit dipenuhi"),
+                        "evidence": tr(
+                            f"{on_time} of {len(done)} {name} tasks were completed before the deadline.",
+                            f"{on_time} dari {len(done)} task {name} selesai sebelum deadline.",
+                        ),
+                        "suggestion": tr(
+                            f"Start {name} tasks earlier in the day, and flag missing items to them early.",
+                            f"Mulai task {name} lebih pagi, dan kabari mereka sejak awal soal dokumen yang kurang.",
+                        ),
                     }
                 )
     return out
@@ -426,7 +541,7 @@ def analytics(db: Session, user: User, weeks: int = 8) -> dict:
         )
 
     by_mode = []
-    for mode, label in (("SEA", "Sea"), ("AIR", "Air"), (None, "Not set")):
+    for mode, label in (("SEA", tr("Sea", "Laut")), ("AIR", tr("Air", "Udara")), (None, tr("Not set", "Belum diisi"))):
         items = [t for t in history if _mode(t) == mode and t.actual_minutes]
         if items:
             by_mode.append(
@@ -447,6 +562,6 @@ def analytics(db: Session, user: User, weeks: int = 8) -> dict:
         "weekly": weekly,
         "by_mode": by_mode,
         "issues": [{"type": k, "count": v} for k, v in issues.most_common()],
-        "weekday_minutes": [{"day": WEEKDAYS[wd][:3], "minutes": weekday_minutes.get(wd, 0)} for wd in range(7)],
+        "weekday_minutes": [{"day": _weekday(wd)[:3], "minutes": weekday_minutes.get(wd, 0)} for wd in range(7)],
         "total_completed": len(history),
     }
