@@ -3,6 +3,7 @@
 import useSWR, { useSWRConfig } from "swr";
 
 import { fetcher } from "@/lib/api/client";
+import { t } from "@/lib/i18n";
 import type { DocumentItem, DocumentSettings, DocumentStatus, ShipmentDetail, ShipmentGroup, UploadResult } from "@/types";
 
 // While anything is still being analysed, poll a little faster so results appear on their own
@@ -74,10 +75,10 @@ export function uploadWithProgress(
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as UploadResult);
-      else reject(new Error((xhr.response && xhr.response.message) || "The upload could not be completed."));
+      else reject(new Error((xhr.response && xhr.response.message) || t("The upload could not be completed.", "Unggahan tidak bisa diselesaikan.")));
     };
-    xhr.onerror = () => reject(new Error("Cannot reach the server. Check your connection and try again."));
-    xhr.onabort = () => reject(new Error("Upload cancelled. Nothing was saved."));
+    xhr.onerror = () => reject(new Error(t("Cannot reach the server. Check your connection and try again.", "Server tidak bisa dihubungi. Cek koneksi kamu lalu coba lagi.")));
+    xhr.onabort = () => reject(new Error(t("Upload cancelled. Nothing was saved.", "Unggahan dibatalkan. Tidak ada yang disimpan.")));
     xhr.send(form);
   });
   return { promise, cancel: () => xhr.abort() };

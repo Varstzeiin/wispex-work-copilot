@@ -6,27 +6,51 @@ import { Button, Card, Modal, SectionTitle } from "@/components/ui";
 import { useAutomationStatus, useRefreshAutomation } from "@/features/automation/hooks";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
+import { t } from "@/lib/i18n";
 import type { AutomationStatus } from "@/types";
 
 type Key = "client_patterns_allowed" | "email_sending_allowed" | "team_channel_allowed";
 
-const COPY: Record<Key, { title: string; on: string; confirm: string }> = {
-  client_patterns_allowed: {
-    title: "Patterns per client",
-    on: "Insights can name clients, for example which client's documents often arrive late.",
-    confirm: "I confirm that my organization's policy permits analysing my work per named client in this application.",
-  },
-  email_sending_allowed: {
-    title: "Send drafts by email",
-    on: "You can send a reviewed draft through the organization's email server. You approve every message before it is sent.",
-    confirm: "I confirm that my organization's policy explicitly permits sending work messages from this application.",
-  },
-  team_channel_allowed: {
-    title: "Post drafts to the team channel",
-    on: "You can post a reviewed draft to your team channel. You approve every message before it is posted.",
-    confirm: "I confirm that my organization's policy explicitly permits posting work messages from this application to this channel.",
-  },
-};
+const KEYS: Key[] = ["client_patterns_allowed", "email_sending_allowed", "team_channel_allowed"];
+
+function copy(key: Key): { title: string; on: string; confirm: string } {
+  const texts: Record<Key, { title: string; on: string; confirm: string }> = {
+    client_patterns_allowed: {
+      title: t("Patterns per client", "Pola per klien"),
+      on: t(
+        "Insights can name clients, for example which client's documents often arrive late.",
+        "Insight bisa menyebut nama klien, misalnya dokumen klien mana yang sering terlambat.",
+      ),
+      confirm: t(
+        "I confirm that my organization's policy permits analysing my work per named client in this application.",
+        "Aku menyatakan bahwa kebijakan organisasiku mengizinkan analisis pekerjaanku per klien di aplikasi ini.",
+      ),
+    },
+    email_sending_allowed: {
+      title: t("Send drafts by email", "Kirim draf lewat email"),
+      on: t(
+        "You can send a reviewed draft through the organization's email server. You approve every message before it is sent.",
+        "Kamu bisa mengirim draf yang sudah dicek lewat server email organisasi. Setiap pesan harus kamu setujui sebelum dikirim.",
+      ),
+      confirm: t(
+        "I confirm that my organization's policy explicitly permits sending work messages from this application.",
+        "Aku menyatakan bahwa kebijakan organisasiku secara tegas mengizinkan pengiriman pesan kerja dari aplikasi ini.",
+      ),
+    },
+    team_channel_allowed: {
+      title: t("Post drafts to the team channel", "Posting draf ke channel tim"),
+      on: t(
+        "You can post a reviewed draft to your team channel. You approve every message before it is posted.",
+        "Kamu bisa memposting draf yang sudah dicek ke channel tim. Setiap pesan harus kamu setujui sebelum diposting.",
+      ),
+      confirm: t(
+        "I confirm that my organization's policy explicitly permits posting work messages from this application to this channel.",
+        "Aku menyatakan bahwa kebijakan organisasiku secara tegas mengizinkan posting pesan kerja dari aplikasi ini ke channel ini.",
+      ),
+    },
+  };
+  return texts[key];
+}
 
 function current(status: AutomationStatus, key: Key): boolean {
   return key === "client_patterns_allowed"
@@ -38,10 +62,16 @@ function current(status: AutomationStatus, key: Key): boolean {
 
 function unavailable(status: AutomationStatus, key: Key): string | null {
   if (key === "email_sending_allowed" && !status.email_configured)
-    return "Integration Required. No email server is configured (EMAIL_PROVIDER=smtp). Copy the draft and send it yourself.";
+    return t(
+      "Integration Required. No email server is configured (EMAIL_PROVIDER=smtp). Copy the draft and send it yourself.",
+      "Integration Required. Belum ada server email (EMAIL_PROVIDER=smtp). Salin drafnya lalu kirim sendiri.",
+    );
   if (key === "team_channel_allowed" && !status.team_configured)
-    return "Integration Required. No team channel webhook is configured (TEAM_WEBHOOK_URL). Copy the draft and send it yourself.";
-  if (key !== "client_patterns_allowed" && status.is_demo) return "Not available for demo accounts.";
+    return t(
+      "Integration Required. No team channel webhook is configured (TEAM_WEBHOOK_URL). Copy the draft and send it yourself.",
+      "Integration Required. Belum ada webhook channel tim (TEAM_WEBHOOK_URL). Salin drafnya lalu kirim sendiri.",
+    );
+  if (key !== "client_patterns_allowed" && status.is_demo) return t("Not available for demo accounts.", "Tidak tersedia untuk akun demo.");
   return null;
 }
 
@@ -63,7 +93,7 @@ export function AutomationSettingsCard() {
     try {
       await api.put("/api/automation/settings", { [key]: value, confirm_policy: value });
       await refresh();
-      setMessage({ text: `${COPY[key].title}: ${value ? "on" : "off"}.`, ok: true });
+      setMessage({ text: `${copy(key).title}: ${value ? t("on", "aktif") : t("off", "mati")}.`, ok: true });
       setConfirming(null);
     } catch (e) {
       setMessage({ text: errorMessage(e), ok: false });
@@ -75,21 +105,21 @@ export function AutomationSettingsCard() {
   return (
     <Card>
       <div id="automation" className="scroll-mt-20" />
-      <SectionTitle>Insights and sending</SectionTitle>
+      <SectionTitle>{t("Insights and sending", "Insight dan pengiriman")}</SectionTitle>
       {message && (
         <p className={`mb-3 rounded-xl px-3 py-2 text-sm ${message.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`} role="status">
           {message.text}
         </p>
       )}
       <div className="space-y-3">
-        {(Object.keys(COPY) as Key[]).map((key) => {
+        {KEYS.map((key) => {
           const blocked = unavailable(status, key);
           const on = current(status, key);
           return (
             <div key={key} className="rounded-xl border border-slate-200 p-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-medium text-slate-900">
-                  {COPY[key].title}
+                  {copy(key).title}
                   {key === "team_channel_allowed" && status.team_channel_name && (
                     <span className="font-normal text-slate-500"> · {status.team_channel_name}</span>
                   )}
@@ -100,7 +130,7 @@ export function AutomationSettingsCard() {
                     className="h-5 w-5 accent-brand-600"
                     checked={on}
                     disabled={!online || busy}
-                    aria-label={COPY[key].title}
+                    aria-label={copy(key).title}
                     onChange={(e) => {
                       if (e.target.checked) {
                         setChecked(false);
@@ -112,22 +142,22 @@ export function AutomationSettingsCard() {
                   />
                 )}
               </div>
-              <p className="mt-1 text-sm text-slate-600">{blocked ?? COPY[key].on}</p>
+              <p className="mt-1 text-sm text-slate-600">{blocked ?? copy(key).on}</p>
             </div>
           );
         })}
       </div>
 
-      <Modal open={confirming !== null} title={confirming ? `Turn on: ${COPY[confirming].title}?` : ""} onClose={() => setConfirming(null)}>
+      <Modal open={confirming !== null} title={confirming ? `${t("Turn on", "Aktifkan")}: ${copy(confirming).title}?` : ""} onClose={() => setConfirming(null)}>
         {confirming && (
           <div className="space-y-3 text-sm text-slate-700">
-            <p>{COPY[confirming].on}</p>
+            <p>{copy(confirming).on}</p>
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3">
               <input type="checkbox" className="mt-0.5 h-5 w-5 accent-brand-600" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-              <span>{COPY[confirming].confirm}</span>
+              <span>{copy(confirming).confirm}</span>
             </label>
             <Button block loading={busy} disabled={!checked} onClick={() => save(confirming, true)}>
-              Turn on
+              {t("Turn on", "Aktifkan")}
             </Button>
           </div>
         )}

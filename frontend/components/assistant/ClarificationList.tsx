@@ -9,6 +9,7 @@ import { useClarifications, useRefreshAssistant } from "@/features/assistant/hoo
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline, useSettings } from "@/lib/hooks";
 import { formatDateTime } from "@/lib/utils/time";
+import { t } from "@/lib/i18n";
 import type { Clarification } from "@/types";
 
 /** Questions and escalations still waiting for an answer. Recording the answer closes the task issue. */
@@ -26,7 +27,14 @@ export function ClarificationList({ taskId, compact = false }: { taskId?: string
 
   if (!data) return null;
   if (data.items.length === 0) {
-    return compact ? null : <EmptyState title="No open questions">Questions you ask through “I&apos;m not sure” appear here until you record the answer.</EmptyState>;
+    return compact ? null : (
+      <EmptyState title={t("No open questions", "Belum ada pertanyaan terbuka")}>
+        {t(
+          "Questions you ask through “I'm not sure” appear here until you record the answer.",
+          "Pertanyaan yang kamu ajukan lewat “Aku tidak yakin” muncul di sini sampai jawabannya kamu catat.",
+        )}
+      </EmptyState>
+    );
   }
 
   function open(c: Clarification) {
@@ -69,12 +77,12 @@ export function ClarificationList({ taskId, compact = false }: { taskId?: string
                   <MessageCircleQuestion className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
                 )}
                 <span className="truncate">
-                  {c.kind === "ESCALATION" ? "Escalated" : "Asked"}
+                  {c.kind === "ESCALATION" ? t("Escalated", "Dieskalasi ke") : t("Asked", "Ditanyakan ke")}
                   {c.asked_to && ` ${c.asked_to}`}: {c.field_name || c.issue}
                 </span>
               </p>
               <Button variant="secondary" onClick={() => open(c)} disabled={!online} className="shrink-0">
-                Record answer
+                {t("Record answer", "Catat jawaban")}
               </Button>
             </div>
             <p className="mt-1 line-clamp-2 text-slate-600">{c.question}</p>
@@ -93,30 +101,42 @@ export function ClarificationList({ taskId, compact = false }: { taskId?: string
         ))}
       </ul>
 
-      <Modal open={!!active} title="Record the answer" onClose={() => setActive(null)}>
+      <Modal open={!!active} title={t("Record the answer", "Catat jawabannya")} onClose={() => setActive(null)}>
         {active && (
           <div className="space-y-3">
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{active.question}</p>
-            <Field label="Answer you received" htmlFor="answer" hint="Write it as you received it. Include who answered if that matters.">
+            <Field
+              label={t("Answer you received", "Jawaban yang kamu terima")}
+              htmlFor="answer"
+              hint={t(
+                "Write it as you received it. Include who answered if that matters.",
+                "Tulis sesuai yang kamu terima. Sebutkan siapa yang menjawab kalau itu penting.",
+              )}
+            >
               <textarea id="answer" rows={4} className={inputClass} value={answer} onChange={(e) => setAnswer(e.target.value)} maxLength={3000} />
             </Field>
             <label className="flex items-start gap-3 text-sm">
               <input type="checkbox" className="mt-0.5 h-5 w-5 accent-brand-600" checked={save} onChange={(e) => setSave(e.target.checked)} />
-              <span>Save to my knowledge base as a resolved question</span>
+              <span>{t("Save to my knowledge base as a resolved question", "Simpan ke basis pengetahuanku sebagai pertanyaan terjawab")}</span>
             </label>
             {save && (
               <label className="flex items-start gap-3 text-sm">
                 <input type="checkbox" className="mt-0.5 h-5 w-5 accent-brand-600" checked={verified} onChange={(e) => setVerified(e.target.checked)} />
-                <span>The answer came from a senior, supervisor or official source (mark as confirmed)</span>
+                <span>
+                  {t(
+                    "The answer came from a senior, supervisor or official source (mark as confirmed)",
+                    "Jawaban berasal dari senior, supervisor, atau sumber resmi (tandai terkonfirmasi)",
+                  )}
+                </span>
               </label>
             )}
             <InlineError message={error} />
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={() => submit("cancel")} disabled={busy}>
-                No longer needed
+                {t("No longer needed", "Sudah tidak perlu")}
               </Button>
               <Button onClick={() => submit("answer")} loading={busy} disabled={!answer.trim() || !online}>
-                Save answer
+                {t("Save answer", "Simpan jawaban")}
               </Button>
             </div>
           </div>

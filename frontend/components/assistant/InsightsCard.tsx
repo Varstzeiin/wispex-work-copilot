@@ -7,6 +7,7 @@ import { Button, Card, InlineError, Modal, SectionTitle, inputClass } from "@/co
 import { useInsights, useRefreshAssistant } from "@/features/assistant/hooks";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
+import { t } from "@/lib/i18n";
 
 /** Error analysis and adaptive personal checklist. Nothing changes without the user's confirmation. */
 export function InsightsCard() {
@@ -26,7 +27,7 @@ export function InsightsCard() {
     try {
       await api.post(`/api/assistant/checklist-suggestions/${kind}`, { key, item });
       await refresh();
-      setDone(kind === "accept" ? `Added to your final checklist: “${item}”` : null);
+      setDone(kind === "accept" ? t(`Added to your final checklist: “${item}”`, `Ditambahkan ke checklist akhirmu: “${item}”`) : null);
       setActive(null);
     } catch (e) {
       setError(errorMessage(e));
@@ -39,7 +40,7 @@ export function InsightsCard() {
     <Card>
       <SectionTitle>
         <span className="flex items-center gap-2">
-          <Microscope className="h-4 w-4 text-brand-600" aria-hidden /> Error analysis
+          <Microscope className="h-4 w-4 text-brand-600" aria-hidden /> {t("Error analysis", "Analisis kesalahan")}
         </span>
       </SectionTitle>
       <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
@@ -51,13 +52,15 @@ export function InsightsCard() {
       {data.suggestions.map((s) => (
         <div key={s.key} className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950">
           <p>{s.message}</p>
-          <p className="mt-1 font-medium">Suggested checklist item: “{s.item}”</p>
+          <p className="mt-1 font-medium">
+            {t("Suggested checklist item:", "Usulan item checklist:")} “{s.item}”
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Button onClick={() => setActive(s)} disabled={!online}>
-              <ListPlus className="h-4 w-4" aria-hidden /> Review and add
+              <ListPlus className="h-4 w-4" aria-hidden /> {t("Review and add", "Tinjau dan tambahkan")}
             </Button>
             <Button variant="ghost" onClick={() => act("dismiss", s.key)} disabled={!online || busy}>
-              Not now
+              {t("Not now", "Nanti saja")}
             </Button>
           </div>
         </div>
@@ -67,14 +70,18 @@ export function InsightsCard() {
           {done}
         </p>
       )}
-      <p className="mt-3 text-xs text-slate-500">{data.note} Suggestions only change your personal checklist, never official SOP.</p>
+      <p className="mt-3 text-xs text-slate-500">{data.note}{" "}
+        {t(
+          "Suggestions only change your personal checklist, never official SOP.",
+          "Saran hanya mengubah checklist pribadimu, tidak pernah SOP resmi.",
+        )}</p>
 
-      <Modal open={!!active} title="Add to your final checklist?" onClose={() => setActive(null)}>
+      <Modal open={!!active} title={t("Add to your final checklist?", "Tambahkan ke checklist akhirmu?")} onClose={() => setActive(null)}>
         {active && (
           <div className="space-y-3">
             <p className="text-sm text-slate-600">{active.message}</p>
             <label htmlFor="suggested-item" className="block text-sm font-medium text-slate-700">
-              Checklist item (you can change the wording)
+              {t("Checklist item (you can change the wording)", "Item checklist (kalimatnya bisa kamu ubah)")}
             </label>
             <input
               id="suggested-item"
@@ -85,7 +92,7 @@ export function InsightsCard() {
             />
             <InlineError message={error} />
             <Button block loading={busy} disabled={!active.item.trim()} onClick={() => act("accept", active.key, active.item.trim())}>
-              Add to my checklist
+              {t("Add to my checklist", "Tambahkan ke checklistku")}
             </Button>
           </div>
         )}

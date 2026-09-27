@@ -4,9 +4,10 @@ import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui";
+import { t } from "@/lib/i18n";
 
 /** Copy to the clipboard, so the user sends the message themselves in their own channel. */
-export function CopyButton({ text, label = "Copy", onCopied }: { text: string; label?: string; onCopied?: () => void }) {
+export function CopyButton({ text, label, onCopied }: { text: string; label?: string; onCopied?: () => void }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
   async function copy() {
@@ -23,7 +24,11 @@ export function CopyButton({ text, label = "Copy", onCopied }: { text: string; l
   return (
     <Button variant="secondary" onClick={copy} disabled={!text.trim()}>
       {state === "copied" ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
-      {state === "copied" ? "Copied" : state === "failed" ? "Select and copy manually" : label}
+      {state === "copied"
+        ? t("Copied", "Tersalin")
+        : state === "failed"
+          ? t("Select and copy manually", "Pilih lalu salin manual")
+          : (label ?? t("Copy", "Salin"))}
     </Button>
   );
 }

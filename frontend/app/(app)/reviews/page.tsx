@@ -11,6 +11,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { useRefreshPerformance, useReviewHistory, useShiftReview, useWeeklyReview } from "@/features/performance/hooks";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
+import { dateLocale, t } from "@/lib/i18n";
 import { formatMinutes } from "@/lib/utils/time";
 import type { PeriodStats } from "@/types";
 
@@ -30,15 +31,18 @@ function Reviews() {
   const [date, setDate] = useState<string | null>(params.get("date"));
   return (
     <div>
-      <PageHeader title="Reviews" subtitle="Numbers are calculated from your recorded work. Reflections are yours." />
+      <PageHeader
+        title={t("Reviews", "Refleksi")}
+        subtitle={t("Numbers are calculated from your recorded work. Reflections are yours.", "Angka dihitung dari pekerjaan yang kamu catat. Refleksinya milikmu.")}
+      />
       <Tabs
-        label="Review type"
+        label={t("Review type", "Jenis refleksi")}
         value={tab}
         onChange={setTab}
         tabs={[
-          { key: "shift", label: "End of shift" },
-          { key: "weekly", label: "Weekly" },
-          { key: "history", label: "History" },
+          { key: "shift", label: t("End of shift", "Akhir shift") },
+          { key: "weekly", label: t("Weekly", "Mingguan") },
+          { key: "history", label: t("History", "Riwayat") },
         ]}
       />
       {tab === "shift" && <ShiftReviewView date={date} setDate={setDate} />}
@@ -64,23 +68,23 @@ function shiftDate(iso: string, days: number): string {
 }
 
 function longDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(
+  return new Intl.DateTimeFormat(dateLocale(), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(
     new Date(`${iso}T00:00:00Z`),
   );
 }
 
 function shortDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+  return new Intl.DateTimeFormat(dateLocale(), { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
 }
 
 function DateNav({ label, onPrev, onNext, canNext }: { label: string; onPrev: () => void; onNext: () => void; canNext: boolean }) {
   return (
     <div className="mb-4 flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-2">
-      <button onClick={onPrev} className="rounded-xl p-2 text-slate-600 hover:bg-slate-100" aria-label="Previous">
+      <button onClick={onPrev} className="rounded-xl p-2 text-slate-600 hover:bg-slate-100" aria-label={t("Previous", "Sebelumnya")}>
         <ChevronLeft className="h-5 w-5" />
       </button>
       <span className="font-semibold text-slate-900">{label}</span>
-      <button onClick={onNext} disabled={!canNext} className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-30" aria-label="Next">
+      <button onClick={onNext} disabled={!canNext} className="rounded-xl p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-30" aria-label={t("Next", "Berikutnya")}>
         <ChevronRight className="h-5 w-5" />
       </button>
     </div>
@@ -89,17 +93,20 @@ function DateNav({ label, onPrev, onNext, canNext }: { label: string; onPrev: ()
 
 function StatGrid({ stats, extra }: { stats: PeriodStats; extra?: { label: string; value: string | number }[] }) {
   const items = [
-    { label: "Tasks completed", value: stats.tasks_completed },
+    { label: t("Tasks completed", "Task selesai"), value: stats.tasks_completed },
     {
-      label: "On time",
+      label: t("On time", "Tepat waktu"),
       value: stats.completed_with_deadline ? `${stats.completed_on_time}/${stats.completed_with_deadline}` : "—",
     },
-    { label: "Errors", value: stats.errors },
-    { label: "Discrepancies", value: stats.discrepancies },
-    { label: "Escalations", value: stats.escalations },
-    { label: "Avg. processing", value: stats.avg_processing_minutes ? formatMinutes(stats.avg_processing_minutes) : "—" },
-    { label: "Learning completed", value: stats.learning_completed },
-    { label: "Feedback applied", value: stats.feedback_applied },
+    { label: t("Errors", "Kesalahan"), value: stats.errors },
+    { label: t("Discrepancies", "Selisih"), value: stats.discrepancies },
+    { label: t("Escalations", "Eskalasi"), value: stats.escalations },
+    {
+      label: t("Avg. processing", "Rata-rata pengerjaan"),
+      value: stats.avg_processing_minutes ? formatMinutes(stats.avg_processing_minutes) : "—",
+    },
+    { label: t("Learning completed", "Belajar selesai"), value: stats.learning_completed },
+    { label: t("Feedback applied", "Feedback diterapkan"), value: stats.feedback_applied },
     ...(extra ?? []),
   ];
   return (
@@ -152,7 +159,7 @@ function Reflection({
 
   return (
     <Card>
-      <SectionTitle>Your reflection</SectionTitle>
+      <SectionTitle>{t("Your reflection", "Refleksimu")}</SectionTitle>
       <div className="space-y-3">
         {fields.map((f) => (
           <Field key={f.key} label={f.label} htmlFor={f.key}>
@@ -173,9 +180,9 @@ function Reflection({
       <InlineError message={error} />
       <div className="mt-3 flex items-center gap-3">
         <Button onClick={save} loading={saving} disabled={!online}>
-          Save reflection
+          {t("Save reflection", "Simpan refleksi")}
         </Button>
-        {(saved || savedAt) && <span className="text-xs text-slate-500">{saved ? "Saved." : "Saved earlier."}</span>}
+        {(saved || savedAt) && <span className="text-xs text-slate-500">{saved ? t("Saved.", "Tersimpan.") : t("Saved earlier.", "Sudah disimpan sebelumnya.")}</span>}
       </div>
     </Card>
   );
@@ -194,7 +201,7 @@ function ShiftReviewView({ date, setDate }: { date: string | null; setDate: (d: 
   return (
     <div className="space-y-4">
       <DateNav
-        label={data.is_today ? `Today · ${shortDate(data.review_date)}` : longDate(data.review_date)}
+        label={data.is_today ? `${t("Today", "Hari ini")} · ${shortDate(data.review_date)}` : longDate(data.review_date)}
         onPrev={() => setDate(shiftDate(data.review_date, -1))}
         onNext={() => {
           const next = shiftDate(data.review_date, 1);
@@ -210,9 +217,9 @@ function ShiftReviewView({ date, setDate }: { date: string | null; setDate: (d: 
         extra={
           data.is_today
             ? [
-                { label: "Pending now", value: s.pending ?? 0 },
-                { label: "Critical now", value: s.critical ?? 0 },
-                { label: "Waiting on others", value: s.waiting ?? 0 },
+                { label: t("Pending now", "Belum selesai"), value: s.pending ?? 0 },
+                { label: t("Critical now", "Kritis sekarang"), value: s.critical ?? 0 },
+                { label: t("Waiting on others", "Menunggu pihak lain"), value: s.waiting ?? 0 },
               ]
             : undefined
         }
@@ -221,13 +228,14 @@ function ShiftReviewView({ date, setDate }: { date: string | null; setDate: (d: 
         <section className="flex gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <p>
-            Most frequent issue in the last 14 days: <strong>{data.recurring_issue.label}</strong> ({data.recurring_issue.count}×).
+            {t("Most frequent issue in the last 14 days:", "Masalah paling sering dalam 14 hari terakhir:")}{" "}
+            <strong>{data.recurring_issue.label}</strong> ({data.recurring_issue.count}×).
           </p>
         </section>
       )}
       {data.is_today && s.tomorrow_priorities && s.tomorrow_priorities.length > 0 && (
         <Card>
-          <SectionTitle>Tomorrow&apos;s priorities (from your open tasks)</SectionTitle>
+          <SectionTitle>{t("Tomorrow's priorities (from your open tasks)", "Prioritas besok (dari task yang masih terbuka)")}</SectionTitle>
           <ol className="space-y-2 text-sm">
             {s.tomorrow_priorities.map((p, i) => (
               <li key={p.task_id} className="flex gap-2">
@@ -242,9 +250,21 @@ function ShiftReviewView({ date, setDate }: { date: string | null; setDate: (d: 
       )}
       <Reflection
         fields={[
-          { key: "went_well", label: "What went well?", placeholder: "e.g. Checked every weight against the Packing List" },
-          { key: "to_improve", label: "What will you do differently?", placeholder: "e.g. Ask earlier when a document is unclear" },
-          { key: "tomorrow_focus", label: "Tomorrow's focus", placeholder: "e.g. Start with the earliest deadline" },
+          {
+            key: "went_well",
+            label: t("What went well?", "Apa yang berjalan baik?"),
+            placeholder: t("e.g. Checked every weight against the Packing List", "mis. Mengecek setiap berat dengan Packing List"),
+          },
+          {
+            key: "to_improve",
+            label: t("What will you do differently?", "Apa yang akan kamu lakukan berbeda?"),
+            placeholder: t("e.g. Ask earlier when a document is unclear", "mis. Bertanya lebih awal kalau dokumen kurang jelas"),
+          },
+          {
+            key: "tomorrow_focus",
+            label: t("Tomorrow's focus", "Fokus besok"),
+            placeholder: t("e.g. Start with the earliest deadline", "mis. Mulai dari deadline paling awal"),
+          },
         ]}
         initial={{
           went_well: data.reflection.went_well,
@@ -273,7 +293,12 @@ function WeeklyReviewView() {
   const isCurrent = week === null;
   const s = data.stats;
   const p = data.previous_week;
-  const delta = (now: number, before: number) => (now === before ? "same as" : now > before ? `${now - before} more than` : `${before - now} fewer than`);
+  const delta = (now: number, before: number) =>
+    now === before
+      ? t("same as", "sama dengan")
+      : now > before
+        ? t(`${now - before} more than`, `${now - before} lebih banyak dari`)
+        : t(`${before - now} fewer than`, `${before - now} lebih sedikit dari`);
 
   return (
     <div className="space-y-4">
@@ -288,35 +313,36 @@ function WeeklyReviewView() {
       />
       <Card>
         <p className="text-sm leading-relaxed text-slate-800">
-          This week: {s.tasks_completed} tasks completed ({delta(s.tasks_completed, p.tasks_completed)} the week before),{" "}
-          {s.errors} error{s.errors === 1 ? "" : "s"} ({delta(s.errors, p.errors)} the week before), {s.escalations} escalation
-          {s.escalations === 1 ? "" : "s"}. {data.shift_reviews_logged} end-of-shift review{data.shift_reviews_logged === 1 ? "" : "s"} written.
+          {t(
+            `This week: ${s.tasks_completed} tasks completed (${delta(s.tasks_completed, p.tasks_completed)} the week before), ${s.errors} error${s.errors === 1 ? "" : "s"} (${delta(s.errors, p.errors)} the week before), ${s.escalations} escalation${s.escalations === 1 ? "" : "s"}. ${data.shift_reviews_logged} end-of-shift review${data.shift_reviews_logged === 1 ? "" : "s"} written.`,
+            `Minggu ini: ${s.tasks_completed} task selesai (${delta(s.tasks_completed, p.tasks_completed)} minggu sebelumnya), ${s.errors} kesalahan (${delta(s.errors, p.errors)} minggu sebelumnya), ${s.escalations} eskalasi. ${data.shift_reviews_logged} refleksi akhir shift ditulis.`,
+          )}
         </p>
         {data.recurring_issue && (
           <p className="mt-2 text-sm text-amber-900">
-            Most frequent issue: <strong>{data.recurring_issue.label}</strong>.
+            {t("Most frequent issue:", "Masalah paling sering:")} <strong>{data.recurring_issue.label}</strong>.
           </p>
         )}
       </Card>
       <StatGrid stats={s} />
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <SectionTitle>Tasks completed per day</SectionTitle>
+          <SectionTitle>{t("Tasks completed per day", "Task selesai per hari")}</SectionTitle>
           <ColumnChart
-            title="Tasks completed per day"
+            title={t("Tasks completed per day", "Task selesai per hari")}
             data={data.days.map((d) => ({
-              label: new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(`${d.date}T00:00:00Z`)),
+              label: new Intl.DateTimeFormat(dateLocale(), { weekday: "short", timeZone: "UTC" }).format(new Date(`${d.date}T00:00:00Z`)),
               value: d.completed,
               detail: longDate(d.date),
             }))}
           />
         </Card>
         <Card>
-          <SectionTitle>Errors per day</SectionTitle>
+          <SectionTitle>{t("Errors per day", "Kesalahan per hari")}</SectionTitle>
           <ColumnChart
-            title="Errors per day"
+            title={t("Errors per day", "Kesalahan per hari")}
             data={data.days.map((d) => ({
-              label: new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(`${d.date}T00:00:00Z`)),
+              label: new Intl.DateTimeFormat(dateLocale(), { weekday: "short", timeZone: "UTC" }).format(new Date(`${d.date}T00:00:00Z`)),
               value: d.errors,
               detail: longDate(d.date),
             }))}
@@ -325,9 +351,9 @@ function WeeklyReviewView() {
       </div>
       <Reflection
         fields={[
-          { key: "went_well", label: "What went well this week?", placeholder: "" },
-          { key: "to_improve", label: "What should improve?", placeholder: "" },
-          { key: "next_week_focus", label: "Focus for next week", placeholder: "" },
+          { key: "went_well", label: t("What went well this week?", "Apa yang berjalan baik minggu ini?"), placeholder: "" },
+          { key: "to_improve", label: t("What should improve?", "Apa yang perlu diperbaiki?"), placeholder: "" },
+          { key: "next_week_focus", label: t("Focus for next week", "Fokus minggu depan"), placeholder: "" },
         ]}
         initial={{
           went_well: data.reflection.went_well,
@@ -353,15 +379,15 @@ function HistoryView({ openDay }: { openDay: (date: string) => void }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card>
-        <SectionTitle>End-of-shift reviews</SectionTitle>
-        {data.shift_reviews.length === 0 && <p className="text-sm text-slate-500">No saved reviews yet.</p>}
+        <SectionTitle>{t("End-of-shift reviews", "Refleksi akhir shift")}</SectionTitle>
+        {data.shift_reviews.length === 0 && <p className="text-sm text-slate-500">{t("No saved reviews yet.", "Belum ada refleksi tersimpan.")}</p>}
         <ul className="divide-y divide-slate-100">
           {data.shift_reviews.map((r) => (
             <li key={r.review_date}>
               <button onClick={() => openDay(r.review_date)} className="flex w-full items-center justify-between py-2 text-left text-sm hover:bg-slate-50">
                 <span className="font-medium text-slate-900">{longDate(r.review_date)}</span>
                 <span className="text-xs text-slate-500">
-                  {r.tasks_completed} tasks · {r.errors} errors
+                  {r.tasks_completed} {t("tasks", "task")} · {r.errors} {t("errors", "kesalahan")}
                 </span>
               </button>
             </li>
@@ -369,14 +395,16 @@ function HistoryView({ openDay }: { openDay: (date: string) => void }) {
         </ul>
       </Card>
       <Card>
-        <SectionTitle>Weekly reviews</SectionTitle>
-        {data.weekly_reviews.length === 0 && <p className="text-sm text-slate-500">No saved weekly reviews yet.</p>}
+        <SectionTitle>{t("Weekly reviews", "Refleksi mingguan")}</SectionTitle>
+        {data.weekly_reviews.length === 0 && <p className="text-sm text-slate-500">{t("No saved weekly reviews yet.", "Belum ada refleksi mingguan tersimpan.")}</p>}
         <ul className="divide-y divide-slate-100">
           {data.weekly_reviews.map((r) => (
             <li key={r.week_start} className="flex items-center justify-between py-2 text-sm">
-              <span className="font-medium text-slate-900">Week of {shortDate(r.week_start)}</span>
+              <span className="font-medium text-slate-900">
+                {t("Week of", "Minggu")} {shortDate(r.week_start)}
+              </span>
               <span className="text-xs text-slate-500">
-                {r.tasks_completed} tasks · {r.errors} errors
+                {r.tasks_completed} {t("tasks", "task")} · {r.errors} {t("errors", "kesalahan")}
               </span>
             </li>
           ))}

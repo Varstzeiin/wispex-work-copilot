@@ -10,20 +10,24 @@ import { useDevelopmentPlan, useIndicators, useRefreshPerformance } from "@/feat
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
 import { INDICATOR_STATUS } from "@/lib/utils/labels";
+import { t } from "@/lib/i18n";
 import type { DevelopmentPlanData } from "@/types";
 
 export default function GrowthPage() {
   const [tab, setTab] = useState<"indicators" | "plan">("indicators");
   return (
     <div>
-      <PageHeader title="Growth" subtitle="Evidence of progress: accuracy, reliability, independence, trust." />
+      <PageHeader
+        title={t("Growth", "Perkembangan")}
+        subtitle={t("Evidence of progress: accuracy, reliability, independence, trust.", "Bukti kemajuan: akurasi, keandalan, kemandirian, kepercayaan.")}
+      />
       <Tabs
-        label="Growth view"
+        label={t("Growth view", "Tampilan perkembangan")}
         value={tab}
         onChange={setTab}
         tabs={[
-          { key: "indicators", label: "Reliability indicators" },
-          { key: "plan", label: "30 / 60 / 90 days" },
+          { key: "indicators", label: t("Reliability indicators", "Indikator keandalan") },
+          { key: "plan", label: t("30 / 60 / 90 days", "30 / 60 / 90 hari") },
         ]}
       />
       {tab === "indicators" ? <Indicators /> : <Plan />}
@@ -39,12 +43,14 @@ function Indicators() {
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="font-semibold text-slate-900">Personal Reliability Indicators</h2>
+        <h2 className="font-semibold text-slate-900">{t("Personal Reliability Indicators", "Indikator Keandalan Pribadi")}</h2>
         <p className="mt-1 text-sm text-slate-600">
-          For your own development only. This is not an official company evaluation, and there is deliberately no overall
-          score. Each indicator shows the evidence behind it.
+          {t(
+            "For your own development only. This is not an official company evaluation, and there is deliberately no overall score. Each indicator shows the evidence behind it.",
+            "Hanya untuk pengembangan dirimu. Ini bukan penilaian resmi perusahaan, dan sengaja tidak ada skor total. Setiap indikator menunjukkan bukti di baliknya.",
+          )}
         </p>
-        <div className="mt-3 flex gap-2" role="group" aria-label="Period">
+        <div className="mt-3 flex gap-2" role="group" aria-label={t("Period", "Periode")}>
           {[14, 30, 90].map((d) => (
             <button
               key={d}
@@ -54,7 +60,7 @@ function Indicators() {
                 days === d ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white text-slate-700",
               )}
             >
-              {d} days
+              {d} {t("days", "hari")}
             </button>
           ))}
         </div>
@@ -128,26 +134,49 @@ function Plan() {
         {data.start_date ? (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-slate-800">
-              <span className="text-3xl font-bold tabular-nums">Day {data.day_number}</span>
-              <span className="ml-2 text-sm text-slate-500">since {data.start_date}</span>
+              <span className="text-3xl font-bold tabular-nums">
+                {t(`Day ${data.day_number}`, `Hari ke-${data.day_number}`)}
+              </span>
+              <span className="ml-2 text-sm text-slate-500">
+                {t("since", "sejak")} {data.start_date}
+              </span>
             </p>
             <details className="text-sm">
-              <summary className="cursor-pointer font-semibold text-brand-700">Change start date</summary>
+              <summary className="cursor-pointer font-semibold text-brand-700">{t("Change start date", "Ubah tanggal mulai")}</summary>
               <div className="mt-2 flex gap-2">
-                <input type="date" className={inputClass} value={start} max={data.today} onChange={(e) => setStart(e.target.value)} aria-label="Start date" />
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={start}
+                  max={data.today}
+                  onChange={(e) => setStart(e.target.value)}
+                  aria-label={t("Start date", "Tanggal mulai")}
+                />
                 <Button disabled={!start || !online} loading={busy} onClick={() => run(() => api.put("/api/growth/plan", { start_date: start }))}>
-                  Save
+                  {t("Save", "Simpan")}
                 </Button>
               </div>
             </details>
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm text-slate-700">Set your first working day in this role to track your 30 / 60 / 90 day progress.</p>
+            <p className="text-sm text-slate-700">
+              {t(
+                "Set your first working day in this role to track your 30 / 60 / 90 day progress.",
+                "Isi hari kerja pertamamu di peran ini untuk memantau progres 30 / 60 / 90 hari.",
+              )}
+            </p>
             <div className="flex gap-2">
-              <input type="date" className={inputClass} value={start} max={data.today} onChange={(e) => setStart(e.target.value)} aria-label="Start date" />
+              <input
+                type="date"
+                className={inputClass}
+                value={start}
+                max={data.today}
+                onChange={(e) => setStart(e.target.value)}
+                aria-label={t("Start date", "Tanggal mulai")}
+              />
               <Button disabled={!start || !online} loading={busy} onClick={() => run(() => api.put("/api/growth/plan", { start_date: start }))}>
-                Start
+                {t("Start", "Mulai")}
               </Button>
             </div>
           </div>
@@ -159,11 +188,17 @@ function Plan() {
         <section key={phase.phase} className={clsx("rounded-2xl bg-white p-4", PHASE_STYLE[phase.status])}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-lg font-bold text-slate-900">
-              Day {phase.phase}: {phase.title}
+              {t(`Day ${phase.phase}`, `Hari ke-${phase.phase}`)}: {phase.title}
             </h2>
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {phase.status === "CURRENT" ? "Current phase" : phase.status === "PAST" ? "Completed period" : phase.status === "UPCOMING" ? "Upcoming" : "Not started"}
-              {phase.window && ` · ${phase.window.start} to ${phase.window.end}`}
+              {phase.status === "CURRENT"
+                ? t("Current phase", "Fase saat ini")
+                : phase.status === "PAST"
+                  ? t("Completed period", "Periode selesai")
+                  : phase.status === "UPCOMING"
+                    ? t("Upcoming", "Akan datang")
+                    : t("Not started", "Belum dimulai")}
+              {phase.window && ` · ${phase.window.start} ${t("to", "s.d.")} ${phase.window.end}`}
             </span>
           </div>
 
@@ -174,14 +209,20 @@ function Plan() {
                   onClick={() => run(() => api.patch(`/api/growth/goals/${g.id}`, { done: !g.done }))}
                   disabled={!online || busy}
                   className="mt-0.5 shrink-0"
-                  aria-label={g.done ? `Mark "${g.title}" as not done` : `Mark "${g.title}" as done`}
+                  aria-label={
+                    g.done
+                      ? t(`Mark "${g.title}" as not done`, `Tandai "${g.title}" belum selesai`)
+                      : t(`Mark "${g.title}" as done`, `Tandai "${g.title}" selesai`)
+                  }
                 >
                   {g.done ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Circle className="h-5 w-5 text-slate-300" />}
                 </button>
                 <div className="min-w-0 text-sm">
                   <p className={g.done ? "text-slate-600" : "text-slate-900"}>{g.title}</p>
                   {g.evidence ? (
-                    <p className="text-xs text-emerald-800">Evidence: {g.evidence}</p>
+                    <p className="text-xs text-emerald-800">
+                      {t("Evidence", "Bukti")}: {g.evidence}
+                    </p>
                   ) : (
                     <button
                       onClick={() => {
@@ -190,7 +231,7 @@ function Plan() {
                       }}
                       className="text-xs font-semibold text-brand-700"
                     >
-                      Add evidence
+                      {t("Add evidence", "Tambah bukti")}
                     </button>
                   )}
                 </div>
@@ -205,20 +246,20 @@ function Plan() {
             disabled={!online}
             className="mt-2 flex items-center gap-1 text-xs font-semibold text-brand-700 disabled:text-slate-400"
           >
-            <Plus className="h-3.5 w-3.5" aria-hidden /> Add goal
+            <Plus className="h-3.5 w-3.5" aria-hidden /> {t("Add goal", "Tambah target")}
           </button>
 
           {phase.evidence && (
             <div className="mt-3 rounded-xl bg-slate-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recorded evidence in this period</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("Recorded evidence in this period", "Bukti yang tercatat di periode ini")}</p>
               <dl className="mt-1 grid grid-cols-3 gap-2 text-center sm:grid-cols-6">
                 {[
-                  ["Tasks done", phase.evidence.tasks_completed],
-                  ["On time", phase.evidence.on_time_rate === null ? "—" : `${phase.evidence.on_time_rate}%`],
-                  ["Errors", phase.evidence.errors],
-                  ["Learned", phase.evidence.learning_completed],
-                  ["Feedback applied", phase.evidence.feedback_applied],
-                  ["Shift reviews", phase.evidence.shift_reviews],
+                  [t("Tasks done", "Task selesai"), phase.evidence.tasks_completed],
+                  [t("On time", "Tepat waktu"), phase.evidence.on_time_rate === null ? "—" : `${phase.evidence.on_time_rate}%`],
+                  [t("Errors", "Kesalahan"), phase.evidence.errors],
+                  [t("Learned", "Dipelajari"), phase.evidence.learning_completed],
+                  [t("Feedback applied", "Feedback diterapkan"), phase.evidence.feedback_applied],
+                  [t("Shift reviews", "Refleksi shift"), phase.evidence.shift_reviews],
                 ].map(([label, value]) => (
                   <div key={label as string}>
                     <dt className="text-[10px] uppercase text-slate-500">{label}</dt>
@@ -231,8 +272,8 @@ function Plan() {
         </section>
       ))}
 
-      <Modal open={goalFor !== null} title={`Add a day-${goalFor} goal`} onClose={() => setGoalFor(null)}>
-        <Field label="Goal" htmlFor="goal-title">
+      <Modal open={goalFor !== null} title={t(`Add a day-${goalFor} goal`, `Tambah target hari ke-${goalFor}`)} onClose={() => setGoalFor(null)}>
+        <Field label={t("Goal", "Target")} htmlFor="goal-title">
           <input id="goal-title" className={inputClass} value={goalTitle} onChange={(e) => setGoalTitle(e.target.value)} />
         </Field>
         <Button
@@ -244,13 +285,17 @@ function Plan() {
             if (await run(() => api.post("/api/growth/goals", { phase: goalFor, title: goalTitle }))) setGoalFor(null);
           }}
         >
-          Add goal
+          {t("Add goal", "Tambah target")}
         </Button>
       </Modal>
 
-      <Modal open={evidenceFor !== null} title="Add evidence" onClose={() => setEvidenceFor(null)}>
+      <Modal open={evidenceFor !== null} title={t("Add evidence", "Tambah bukti")} onClose={() => setEvidenceFor(null)}>
         <p className="mb-2 text-sm text-slate-600">{evidenceFor?.title}</p>
-        <Field label="What shows this is achieved?" htmlFor="goal-evidence" hint="e.g. Explained the Packing List to supervisor on 12 Sep">
+        <Field
+          label={t("What shows this is achieved?", "Apa yang menunjukkan ini tercapai?")}
+          htmlFor="goal-evidence"
+          hint={t("e.g. Explained the Packing List to supervisor on 12 Sep", "mis. Menjelaskan Packing List ke supervisor pada 12 Sep")}
+        >
           <textarea id="goal-evidence" rows={3} className={inputClass} value={evidence} onChange={(e) => setEvidence(e.target.value)} />
         </Field>
         <Button
@@ -262,7 +307,7 @@ function Plan() {
             if (evidenceFor && (await run(() => api.patch(`/api/growth/goals/${evidenceFor.id}`, { evidence })))) setEvidenceFor(null);
           }}
         >
-          Save evidence
+          {t("Save evidence", "Simpan bukti")}
         </Button>
       </Modal>
     </div>
