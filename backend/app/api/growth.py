@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.i18n import tr
 from app.core.security import get_current_user
 from app.models import DevelopmentGoal, User
 from app.schemas.performance import GoalIn, GoalUpdate, PlanUpdate
@@ -39,7 +40,7 @@ def set_start_date(data: PlanUpdate, user: User = Depends(get_current_user), db:
 def _goal(db: Session, goal_id: uuid.UUID, user: User) -> DevelopmentGoal:
     goal = db.get(DevelopmentGoal, goal_id)
     if goal is None or goal.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Goal not found.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Goal not found.", "Target tidak ditemukan."))
     return goal
 
 

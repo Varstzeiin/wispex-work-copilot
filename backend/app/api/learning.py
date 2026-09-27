@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db, utcnow
+from app.core.i18n import tr
 from app.core.security import get_current_user
 from app.models import Feedback, LearningItem, Skill, User
 from app.models.performance import SKILL_LEVELS
@@ -187,7 +188,10 @@ def list_skills(user: User = Depends(get_current_user), db: Session = Depends(ge
 def create_skill(data: SkillIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     name = data.name.strip()
     if db.scalar(select(Skill).where(Skill.user_id == user.id, Skill.name == name)):
-        raise HTTPException(status.HTTP_409_CONFLICT, "This skill is already in your matrix.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "This skill is already in your matrix.",
+            "Skill ini sudah ada di matriks kamu.",
+        ))
     skill = Skill(user_id=user.id, name=name, level=0, evidence=data.evidence.strip(), history=[])
     growth_service.record_skill_level(skill, data.level)
     db.add(skill)

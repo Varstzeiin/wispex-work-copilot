@@ -12,6 +12,7 @@ from app.ai import embeddings
 from app.ai.provider import get_provider
 from app.core.config import get_settings
 from app.core.database import get_db, utcnow
+from app.core.i18n import tr
 from app.core.security import ai_rate_limiter, get_current_user
 from app.models import Clarification, CommunicationDraft, KnowledgeNote, User
 from app.services import assistant_service as svc
@@ -57,11 +58,18 @@ def update_assistant_settings(
     if data.ai_assist_allowed != s.ai_assist_allowed:
         if data.ai_assist_allowed:
             if user.is_demo:
-                raise HTTPException(status.HTTP_409_CONFLICT, "Demo accounts never use an AI provider.")
+                raise HTTPException(status.HTTP_409_CONFLICT, tr(
+                    "Demo accounts never use an AI provider.",
+                    "Akun demo tidak pernah memakai penyedia AI.",
+                ))
             if not data.confirm_policy:
                 raise HTTPException(
                     status.HTTP_400_BAD_REQUEST,
-                    "Confirm that your organization permits sending notes and task details to this AI provider.",
+                    tr(
+                        "Confirm that your organization permits sending notes and task details to this AI provider.",
+                        "Konfirmasi bahwa organisasi kamu mengizinkan pengiriman catatan dan detail task ke penyedia "
+                        "AI ini.",
+                    ),
                 )
             s.ai_assist_confirmed_at = utcnow()
         s.ai_assist_allowed = data.ai_assist_allowed

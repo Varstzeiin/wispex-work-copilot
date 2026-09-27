@@ -26,6 +26,7 @@ from app.ai.prompts.extraction import FIELD_NAMES
 from app.ai.provider import ProviderError, get_provider
 from app.core.config import get_settings
 from app.core.database import SessionLocal, get_or_create_user_row, utcnow
+from app.core.i18n import tr
 from app.models import Discrepancy, Document, DocumentSettings, ExtractedField, Shipment, Task, User
 from app.rules.discrepancy_rules import (
     ACTION,
@@ -104,15 +105,24 @@ def inspect_pdf(data: bytes) -> int:
     try:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password-protected PDFs cannot be processed.")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+                "Password-protected PDFs cannot be processed.",
+                "PDF yang dikunci password tidak bisa diproses.",
+            ))
         pages = len(reader.pages)
     except HTTPException:
         raise
     except (PdfReadError, Exception) as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This PDF could not be read. It may be damaged.") from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "This PDF could not be read. It may be damaged.",
+            "PDF ini tidak bisa dibaca. Mungkin filenya rusak.",
+        )) from exc
     limit = get_settings().max_pdf_pages
     if pages > limit:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"PDFs are limited to {limit} pages.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            f"PDFs are limited to {limit} pages.",
+            f"PDF dibatasi {limit} halaman.",
+        ))
     return pages
 
 
@@ -122,7 +132,7 @@ def inspect_pdf(data: bytes) -> int:
 def get_document_for_user(db: Session, user: User, document_id: uuid.UUID) -> Document:
     doc = db.get(Document, document_id)
     if doc is None or doc.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Document not found.", "Dokumen tidak ditemukan."))
     return doc
 
 
@@ -150,15 +160,21 @@ def upload_documents(
 ) -> tuple[list[dict], list[uuid.UUID]]:
     """Validate and store files. Returns per-file results and the document IDs to analyse."""
     if not files:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose at least one file.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr("Choose at least one file.", "Pilih minimal satu file."))
     if len(files) > MAX_FILES_PER_UPLOAD:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Upload at most {MAX_FILES_PER_UPLOAD} files at once.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            f"Upload at most {MAX_FILES_PER_UPLOAD} files at once.",
+            f"Unggah maksimal {MAX_FILES_PER_UPLOAD} file sekaligus.",
+        ))
 
     task = None
     if task_id:
         task = db.get(Task, task_id)
         if task is None or task.user_id != user.id:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Linked task not found.")
+            raise HTTPException(status.HTTP_404_NOT_FOUND, tr(
+                "Linked task not found.",
+                "Task yang ditautkan tidak ditemukan.",
+            ))
         if not shipment_reference and task.shipment:
             shipment_reference = task.shipment.reference
     shipment_reference = shipment_reference.strip()[:80]
@@ -172,21 +188,31 @@ def upload_documents(
     for raw_name, data in files:
         name = safe_filename(raw_name)
         if len(data) == 0:
-            results.append({"filename": name, "status": "REJECTED", "message": "The file is empty."})
+            message = tr("The file is empty.", "File-nya kosong.")
+            results.append({"filename": name, "status": "REJECTED", "message": message})
             continue
         if len(data) > max_bytes:
             results.append(
                 {
                     "filename": name,
                     "status": "REJECTED",
-                    "message": f"Files are limited to {get_settings().max_upload_mb} MB.",
+                    "message": tr(
+                        f"Files are limited to {get_settings().max_upload_mb} MB.",
+                        f"Ukuran file maksimal {get_settings().max_upload_mb} MB.",
+                    ),
                 }
             )
             continue
         mime = detect_mime(data)
         if mime is None:
             results.append(
-                {"filename": name, "status": "REJECTED", "message": "Only PDF, JPG and PNG files are accepted."}
+                {
+                    "filename": name,
+                    "status": "REJECTED",
+                    "message": tr(
+                        "Only PDF, JPG and PNG files are accepted.", "Hanya file PDF, JPG dan PNG yang diterima."
+                    ),
+                }
             )
             continue
         try:
@@ -203,7 +229,10 @@ def upload_documents(
                     "filename": name,
                     "status": "DUPLICATE",
                     "document_id": existing.id,
-                    "message": f"This exact file was already uploaded as “{existing.original_filename}”.",
+                    "message": tr(
+                        f"This exact file was already uploaded as “{existing.original_filename}”.",
+                        f"File yang sama persis sudah pernah diunggah sebagai “{existing.original_filename}”.",
+                    ),
                 }
             )
             continue
@@ -602,9 +631,15 @@ def _close_task_issue(db: Session, user: User, d: Discrepancy, note: str) -> Non
 
 def resolve_discrepancy(db: Session, user: User, d: Discrepancy, new_status: str, note: str) -> Discrepancy:
     if d.status != "OPEN":
-        raise HTTPException(status.HTTP_409_CONFLICT, "This discrepancy is already closed.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "This discrepancy is already closed.",
+            "Perbedaan ini sudah ditutup.",
+        ))
     if not note.strip():
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Record how it was resolved, and who confirmed it.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Record how it was resolved, and who confirmed it.",
+            "Catat bagaimana ini diselesaikan dan siapa yang mengonfirmasi.",
+        ))
     d.status, d.resolution_note, d.resolved_at = new_status, note.strip()[:2000], utcnow()
     verb = "resolved" if new_status == "RESOLVED" else "dismissed"
     _close_task_issue(db, user, d, f"Document check {verb}: {note.strip()[:300]}")
@@ -626,7 +661,10 @@ def normalize_human_value(name: str, value: str) -> str:
         elif "," in compact:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
-                "Use a dot for decimals and no thousands separators, for example 1500 or 1500.50.",
+                tr(
+                    "Use a dot for decimals and no thousands separators, for example 1500 or 1500.50.",
+                    "Pakai titik untuk desimal dan tanpa pemisah ribuan, contoh 1500 atau 1500.50.",
+                ),
             )
         return compact
     if name in ("currency", "weight_unit"):
@@ -636,7 +674,7 @@ def normalize_human_value(name: str, value: str) -> str:
 
 def update_field(db: Session, user: User, doc: Document, name: str, value: Optional[str]) -> Document:
     if name not in FIELD_NAMES:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown field.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Unknown field.", "Field tidak dikenal."))
     field = next((f for f in doc.fields if f.name == name), None)
     if field is None:
         _create_manual_fields(db, doc)
@@ -667,9 +705,12 @@ def update_field(db: Session, user: User, doc: Document, name: str, value: Optio
 def confirm_field(db: Session, user: User, doc: Document, name: str) -> Document:
     field = next((f for f in doc.fields if f.name == name), None)
     if field is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown field.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Unknown field.", "Field tidak dikenal."))
     if field.rule_messages and field.value is not None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This value fails a check. Correct it instead of confirming.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "This value fails a check. Correct it instead of confirming.",
+            "Nilai ini gagal dicek. Perbaiki dulu, jangan langsung dikonfirmasi.",
+        ))
     return update_field(db, user, doc, name, field.value)
 
 
@@ -713,7 +754,7 @@ def set_shipment(db: Session, user: User, doc: Document, reference: str) -> Docu
 
 def verify_document(db: Session, user: User, doc: Document) -> Document:
     if doc.document_type == "UNKNOWN":
-        raise HTTPException(status.HTTP_409_CONFLICT, "Set the document type first.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr("Set the document type first.", "Atur jenis dokumen dulu."))
     pending = [f.name for f in doc.fields if f.status == "NEEDS_REVIEW"]
     if pending:
         raise HTTPException(status.HTTP_409_CONFLICT, f"{len(pending)} field(s) still need review.")
@@ -725,9 +766,15 @@ def verify_document(db: Session, user: User, doc: Document) -> Document:
 
 def reprocess(db: Session, user: User, doc: Document) -> bool:
     if not ai_allowed(db, user):
-        raise HTTPException(status.HTTP_409_CONFLICT, "AI processing is not enabled for your account.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "AI processing is not enabled for your account.",
+            "Pemrosesan AI belum aktif untuk akun kamu.",
+        ))
     if doc.storage_key is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This demo document has no stored file.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "This demo document has no stored file.",
+            "Dokumen demo ini tidak punya file tersimpan.",
+        ))
     if doc.processing_status in ("QUEUED", "PROCESSING"):
         return False
     doc.processing_status, doc.processing_error = "QUEUED", ""

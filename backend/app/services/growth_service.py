@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
+from app.core.i18n import tr
 from app.models import (
     AuditLog,
     Clarification,
@@ -65,6 +66,7 @@ PHASES = [
     (60, "Consistency", 31, 60),
     (90, "Independence and reliability", 61, 90),
 ]
+PHASE_TITLE_ID = {30: "Pemahaman", 60: "Konsistensi", 90: "Kemandirian dan keandalan"}
 
 
 # ---------- Defaults ----------
@@ -155,17 +157,23 @@ def reliability_indicators(db: Session, user: User, days: int = 30) -> dict:
             return "NO_DATA"
         return "GOOD" if ratio >= good else "WATCH" if ratio >= watch else "NEEDS_ATTENTION"
 
+    answered = sum(1 for q in questions if q.status == "ANSWERED")
     indicators = [
         _indicator(
             "on_time",
-            "Tasks completed on time",
+            tr("Tasks completed on time", "Task selesai tepat waktu"),
             _pct(len(on_time), len(with_deadline)),
             status_for(len(on_time) / len(with_deadline) if with_deadline else None, 0.95, 0.85),
-            [f"{len(on_time)} of {len(with_deadline)} tasks with a deadline were completed before it"],
+            [
+                tr(
+                    f"{len(on_time)} of {len(with_deadline)} tasks with a deadline were completed before it",
+                    f"{len(on_time)} dari {len(with_deadline)} task ber-deadline selesai sebelum deadline",
+                )
+            ],
         ),
         _indicator(
             "repeated_errors",
-            "Repeated errors",
+            tr("Repeated errors", "Kesalahan berulang"),
             str(len(repeated)),
             "NO_DATA"
             if not errors and not completed
@@ -174,75 +182,129 @@ def reliability_indicators(db: Session, user: User, days: int = 30) -> dict:
             else "WATCH"
             if len(repeated) == 1
             else "NEEDS_ATTENTION",
-            [f"{field}: {count} errors" for field, count in sorted(repeated.items(), key=lambda x: -x[1])]
-            or [f"{len(errors)} error(s) recorded, none repeated on the same field"],
+            [
+                tr(f"{field}: {count} errors", f"{field}: {count} kesalahan")
+                for field, count in sorted(repeated.items(), key=lambda x: -x[1])
+            ]
+            or [
+                tr(
+                    f"{len(errors)} error(s) recorded, none repeated on the same field",
+                    f"{len(errors)} kesalahan tercatat, tidak ada yang berulang di field yang sama",
+                )
+            ],
         ),
         _indicator(
             "feedback_applied",
-            "Feedback applied",
+            tr("Feedback applied", "Feedback diterapkan"),
             _pct(len(applied), len(feedback)),
             status_for(len(applied) / len(feedback) if feedback else None, 0.8, 0.5),
             [
-                f"{len(applied)} of {len(feedback)} feedback items marked as applied",
-                f"{len(applied_with_evidence)} with written evidence",
+                tr(
+                    f"{len(applied)} of {len(feedback)} feedback items marked as applied",
+                    f"{len(applied)} dari {len(feedback)} feedback ditandai sudah diterapkan",
+                ),
+                tr(
+                    f"{len(applied_with_evidence)} with written evidence",
+                    f"{len(applied_with_evidence)} dengan bukti tertulis",
+                ),
             ],
         ),
         _indicator(
             "questions",
-            "Questions asked clearly",
+            tr("Questions asked clearly", "Pertanyaan diajukan dengan jelas"),
             _pct(len(clear), len(questions)),
             status_for(len(clear) / len(questions) if questions else None, 0.8, 0.5),
             [
-                f"{len(clear)} of {len(questions)} recorded questions were linked to a task and included evidence",
-                f"{sum(1 for q in questions if q.status == 'ANSWERED')} answered",
+                tr(
+                    f"{len(clear)} of {len(questions)} recorded questions were linked to a task and included evidence",
+                    f"{len(clear)} dari {len(questions)} pertanyaan tercatat terhubung ke task dan menyertakan bukti",
+                ),
+                tr(f"{answered} answered", f"{answered} terjawab"),
             ],
-            note="Only questions recorded through “I'm not sure” are counted. Asking is never counted against you.",
+            note=tr(
+                "Only questions recorded through “I'm not sure” are counted. Asking is never counted against you.",
+                "Hanya pertanyaan yang dicatat lewat “Saya tidak yakin” yang dihitung. Bertanya tidak pernah jadi "
+                "nilai minus.",
+            ),
         ),
         _indicator(
             "reported_early",
-            "Issues reported early",
+            tr("Issues reported early", "Masalah dilaporkan lebih awal"),
             _pct(len(early), len(errors)),
             status_for(len(early) / len(errors) if errors else None, 0.9, 0.7),
-            [f"{len(early)} of {len(errors)} errors were reported within 1 hour of discovery"],
-            note="No errors in this period is also fine. Reporting early matters more than the count.",
+            [
+                tr(
+                    f"{len(early)} of {len(errors)} errors were reported within 1 hour of discovery",
+                    f"{len(early)} dari {len(errors)} kesalahan dilaporkan dalam 1 jam sejak ditemukan",
+                )
+            ],
+            note=tr(
+                "No errors in this period is also fine. Reporting early matters more than the count.",
+                "Tidak ada kesalahan di periode ini juga bagus. Melapor lebih awal lebih penting daripada jumlahnya.",
+            ),
         ),
         _indicator(
             "independent",
-            "Tasks completed independently",
+            tr("Tasks completed independently", "Task selesai secara mandiri"),
             _pct(len(independent), len(completed)),
             # Escalating when needed is correct behaviour, so this is never marked as a problem
             "NO_DATA" if not completed else "GOOD",
-            [f"{len(independent)} of {len(completed)} completed tasks needed no escalation"],
-            note="Escalating when the SOP requires it is the right call, not a weakness.",
+            [
+                tr(
+                    f"{len(independent)} of {len(completed)} completed tasks needed no escalation",
+                    f"{len(independent)} dari {len(completed)} task selesai tanpa eskalasi",
+                )
+            ],
+            note=tr(
+                "Escalating when the SOP requires it is the right call, not a weakness.",
+                "Eskalasi saat SOP memintanya adalah keputusan yang tepat, bukan kelemahan.",
+            ),
         ),
         _indicator(
             "sop_knowledge",
-            "SOP knowledge",
+            tr("SOP knowledge", "Pemahaman SOP"),
             f"{len(sop_known)} / {len(sop_items)}",
             status_for(len(sop_known) / len(sop_items) if sop_items else None, 0.8, 0.5),
-            [f"{len(sop_known)} SOP / procedure topics marked understood or applied in your learning tracker"],
+            [
+                tr(
+                    f"{len(sop_known)} SOP / procedure topics marked understood or applied in your learning tracker",
+                    f"{len(sop_known)} topik SOP / prosedur ditandai dipahami atau diterapkan di pelacak belajar",
+                )
+            ],
         ),
         _indicator(
             "consistency",
-            "Consistency",
-            "Improving"
+            tr("Consistency", "Konsistensi"),
+            tr("Improving", "Membaik")
             if earlier_errors > recent_errors
-            else "Stable"
+            else tr("Stable", "Stabil")
             if earlier_errors == recent_errors
-            else "More errors",
+            else tr("More errors", "Kesalahan bertambah"),
             "NO_DATA" if not errors and not completed else "GOOD" if recent_errors <= earlier_errors else "WATCH",
             [
-                f"Errors in the earlier {days // 2} days: {earlier_errors}",
-                f"Errors in the last {days // 2} days: {recent_errors}",
-                f"End-of-shift reviews written: {len(reviews)}",
+                tr(
+                    f"Errors in the earlier {days // 2} days: {earlier_errors}",
+                    f"Kesalahan di {days // 2} hari sebelumnya: {earlier_errors}",
+                ),
+                tr(
+                    f"Errors in the last {days // 2} days: {recent_errors}",
+                    f"Kesalahan di {days // 2} hari terakhir: {recent_errors}",
+                ),
+                tr(f"End-of-shift reviews written: {len(reviews)}", f"Review akhir shift yang ditulis: {len(reviews)}"),
             ],
         ),
         _indicator(
             "documentation",
-            "Documentation quality",
+            tr("Documentation quality", "Kualitas dokumentasi"),
             _pct(len(documented), len(resolved)),
             status_for(len(documented) / len(resolved) if resolved else None, 0.9, 0.6),
-            [f"{len(documented)} of {len(resolved)} resolved errors have a root cause and a prevention step"],
+            [
+                tr(
+                    f"{len(documented)} of {len(resolved)} resolved errors have a root cause and a prevention step",
+                    f"{len(documented)} dari {len(resolved)} kesalahan selesai punya akar masalah dan langkah "
+                    "pencegahan",
+                )
+            ],
         ),
     ]
     return {"days": days, "indicators": indicators}
@@ -276,7 +338,7 @@ def development_plan(db: Session, user: User) -> dict:
         phases.append(
             {
                 "phase": phase,
-                "title": title,
+                "title": tr(title, PHASE_TITLE_ID[phase]),
                 "window": window,
                 "status": _phase_status(day_number, first_day, last_day),
                 "goals": [

@@ -14,6 +14,7 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db, utcnow
+from app.core.i18n import tr
 from app.core.security import get_current_user, send_rate_limiter
 from app.integrations.outbound import DeliveryError, get_email_sender, get_team_channel
 from app.models import CommunicationDraft, LearningItem, User
@@ -59,14 +60,26 @@ def update_permissions(data: PermissionIn, user: User = Depends(get_current_user
     for key, value in changes.items():
         if value and not getattr(s, key):
             if key != "client_patterns_allowed" and user.is_demo:
-                raise HTTPException(status.HTTP_409_CONFLICT, "Demo accounts cannot send messages.")
+                raise HTTPException(status.HTTP_409_CONFLICT, tr(
+                    "Demo accounts cannot send messages.",
+                    "Akun demo tidak bisa mengirim pesan.",
+                ))
             if key == "email_sending_allowed" and get_email_sender() is None:
-                raise HTTPException(status.HTTP_409_CONFLICT, "Email is not configured on this server.")
+                raise HTTPException(status.HTTP_409_CONFLICT, tr(
+                    "Email is not configured on this server.",
+                    "Email belum diatur di server ini.",
+                ))
             if key == "team_channel_allowed" and get_team_channel() is None:
-                raise HTTPException(status.HTTP_409_CONFLICT, "No team channel is configured on this server.")
+                raise HTTPException(status.HTTP_409_CONFLICT, tr(
+                    "No team channel is configured on this server.",
+                    "Belum ada channel tim yang diatur di server ini.",
+                ))
             if not data.confirm_policy:
                 raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST, "Confirm that your organization's policy explicitly permits this."
+                    status.HTTP_400_BAD_REQUEST, tr(
+                        "Confirm that your organization's policy explicitly permits this.",
+                        "Konfirmasi bahwa kebijakan organisasi kamu secara jelas mengizinkan ini.",
+                    )
                 )
             stamp = {"client_patterns_allowed": "client_patterns_confirmed_at",
                      "email_sending_allowed": "email_confirmed_at",
@@ -122,7 +135,10 @@ def suggestion_to_learning(data: SuggestionIn, user: User = Depends(get_current_
     """Turns a suggestion into a learning item. The user decides whether and how to apply it."""
     finding = svc.find_suggestion(db, user, data.key)
     if finding is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "This suggestion is no longer available.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr(
+            "This suggestion is no longer available.",
+            "Saran ini sudah tidak tersedia.",
+        ))
     item = LearningItem(
         user_id=user.id,
         title=finding["suggestion"][:200],
@@ -150,7 +166,10 @@ def _claim(db: Session, user: User, draft: CommunicationDraft) -> None:
     )
     db.commit()
     if result.rowcount != 1:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This draft was already sent or is being sent.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "This draft was already sent or is being sent.",
+            "Draft ini sudah atau sedang dikirim.",
+        ))
 
 
 def _release(db: Session, draft: CommunicationDraft) -> None:
@@ -172,13 +191,25 @@ def send_email(
     draft = get_draft(db, user, draft_id)
     sender = get_email_sender()
     if user.is_demo:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Demo accounts cannot send messages.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "Demo accounts cannot send messages.",
+            "Akun demo tidak bisa mengirim pesan.",
+        ))
     if sender is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Email is not configured on this server (Integration Required).")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "Email is not configured on this server (Integration Required).",
+            "Email belum diatur di server ini (Perlu Integrasi).",
+        ))
     if not svc.get_automation_settings(db, user).email_sending_allowed:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Email sending is off. Switch it on in Settings if permitted.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "Email sending is off. Switch it on in Settings if permitted.",
+            "Pengiriman email sedang mati. Nyalakan di Pengaturan kalau diizinkan.",
+        ))
     if not data.approve:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Review the message and approve sending it.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Review the message and approve sending it.",
+            "Cek pesannya lalu setujui pengirimannya.",
+        ))
     _claim(db, user, draft)
     try:
         sender.send([str(a) for a in data.to], draft.subject or draft.kind.replace("_", " ").title(), draft.body)
@@ -207,17 +238,29 @@ def post_to_team(
     draft = get_draft(db, user, draft_id)
     channel = get_team_channel()
     if user.is_demo:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Demo accounts cannot send messages.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "Demo accounts cannot send messages.",
+            "Akun demo tidak bisa mengirim pesan.",
+        ))
     if channel is None:
         raise HTTPException(
-            status.HTTP_409_CONFLICT, "No team channel is configured on this server (Integration Required)."
+            status.HTTP_409_CONFLICT, tr(
+                "No team channel is configured on this server (Integration Required).",
+                "Belum ada channel tim yang diatur di server ini (Perlu Integrasi).",
+            )
         )
     if not svc.get_automation_settings(db, user).team_channel_allowed:
         raise HTTPException(
-            status.HTTP_409_CONFLICT, "Posting to the team channel is off. Switch it on in Settings if permitted."
+            status.HTTP_409_CONFLICT, tr(
+                "Posting to the team channel is off. Switch it on in Settings if permitted.",
+                "Posting ke channel tim sedang mati. Nyalakan di Pengaturan kalau diizinkan.",
+            )
         )
     if not data.approve:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Review the message and approve posting it.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "Review the message and approve posting it.",
+            "Cek pesannya lalu setujui untuk diposting.",
+        ))
     _claim(db, user, draft)
     text = f"*{draft.subject}*\n\n{draft.body}" if draft.subject else draft.body
     try:

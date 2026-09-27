@@ -3,7 +3,7 @@
 import useSWR, { useSWRConfig } from "swr";
 
 import { fetcher } from "@/lib/api/client";
-import { t } from "@/lib/i18n";
+import { getLang, t } from "@/lib/i18n";
 import type { DocumentItem, DocumentSettings, DocumentStatus, ShipmentDetail, ShipmentGroup, UploadResult } from "@/types";
 
 // While anything is still being analysed, poll a little faster so results appear on their own
@@ -71,6 +71,7 @@ export function uploadWithProgress(
   const promise = new Promise<UploadResult>((resolve, reject) => {
     xhr.open("POST", "/api/documents");
     xhr.setRequestHeader("X-Requested-With", "wispex");
+    xhr.setRequestHeader("X-Language", getLang());
     xhr.responseType = "json";
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
     xhr.onload = () => {

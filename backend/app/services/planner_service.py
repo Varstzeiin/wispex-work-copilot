@@ -8,6 +8,7 @@ from datetime import datetime, time, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
 
+from app.core.i18n import tr
 from app.models import Task, UserSettings
 from app.rules.deadline_rules import format_duration
 from app.services.priority_service import LEVEL_RANK
@@ -66,16 +67,23 @@ def _sort_key(task_dict: dict):
 
 def _next_action(t: dict) -> str:
     if t["deadline"]["overdue"]:
-        return "Deadline passed. Inform the appropriate person per the SOP, then complete carefully"
+        return tr(
+            "Deadline passed. Inform the appropriate person per the SOP, then complete carefully",
+            "Deadline sudah lewat. Beri tahu orang yang tepat sesuai SOP, lalu selesaikan dengan teliti",
+        )
     if t["missing_documents"]:
-        return f"Request missing: {', '.join(t['missing_documents'])}. Continue verified parts meanwhile"
+        missing = ", ".join(t["missing_documents"])
+        return tr(
+            f"Request missing: {missing}. Continue verified parts meanwhile",
+            f"Minta yang kurang: {missing}. Sambil menunggu, lanjutkan bagian yang sudah terverifikasi",
+        )
     if t["open_issue_count"]:
-        return "Verify the open issue against source documents"
+        return tr("Verify the open issue against source documents", "Verifikasi masalah terbuka dengan dokumen sumber")
     if t["status"] == "IN_PROGRESS":
-        return "Continue processing"
+        return tr("Continue processing", "Lanjutkan pengerjaan")
     if t["status"] == "NEEDS_REVIEW":
-        return "Review and verify before submission"
-    return "Start processing"
+        return tr("Review and verify before submission", "Cek dan verifikasi sebelum mengirim")
+    return tr("Start processing", "Mulai kerjakan")
 
 
 def _label(t: dict) -> str:
@@ -119,10 +127,22 @@ def build_plan(tasks: list[Task], settings: UserSettings, now: datetime) -> dict
     suggestions = []
     if shortfall:
         suggestions = [
-            "Prioritise the critical tasks at the top of the queue first",
-            "Review pending and waiting tasks to see which can be closed quickly",
-            "Consider escalating deadline risks according to the SOP",
-            "Ask your supervisor for support or re-prioritisation if appropriate",
+            tr(
+                "Prioritise the critical tasks at the top of the queue first",
+                "Dahulukan task kritis di urutan teratas",
+            ),
+            tr(
+                "Review pending and waiting tasks to see which can be closed quickly",
+                "Cek task yang tertunda dan menunggu, mana yang bisa cepat diselesaikan",
+            ),
+            tr(
+                "Consider escalating deadline risks according to the SOP",
+                "Pertimbangkan eskalasi risiko deadline sesuai SOP",
+            ),
+            tr(
+                "Ask your supervisor for support or re-prioritisation if appropriate",
+                "Minta bantuan atau penyesuaian prioritas ke supervisor kalau perlu",
+            ),
         ]
 
     counts = {
@@ -157,21 +177,31 @@ def build_plan(tasks: list[Task], settings: UserSettings, now: datetime) -> dict
 
 def _plan_summary(counts: dict, queue: list[dict], shift: dict) -> str:
     if counts["open"] == 0:
-        return "You have no open tasks. Good moment to review notes or prepare for incoming work."
-    parts = [f"You have {counts['open']} open task{'s' if counts['open'] != 1 else ''}."]
+        return tr(
+            "You have no open tasks. Good moment to review notes or prepare for incoming work.",
+            "Tidak ada task terbuka. Waktu yang pas untuk meninjau catatan atau bersiap untuk pekerjaan berikutnya.",
+        )
+    n = counts["open"]
+    parts = [tr(f"You have {n} open task{'s' if n != 1 else ''}.", f"Kamu punya {n} task terbuka.")]
     if counts["critical"]:
-        parts.append(f"{counts['critical']} {'is' if counts['critical'] == 1 else 'are'} critical.")
+        c = counts["critical"]
+        parts.append(tr(f"{c} {'is' if c == 1 else 'are'} critical.", f"{c} di antaranya kritis."))
     if counts["blocked"]:
-        parts.append(f"{counts['blocked']} {'is' if counts['blocked'] == 1 else 'are'} waiting on others.")
+        b = counts["blocked"]
+        parts.append(tr(f"{b} {'is' if b == 1 else 'are'} waiting on others.", f"{b} menunggu pihak lain."))
     if queue:
-        parts.append(f"{_label(queue[0]['task'])} should be reviewed first.")
+        first = _label(queue[0]["task"])
+        parts.append(tr(f"{first} should be reviewed first.", f"{first} sebaiknya dicek lebih dulu."))
     if counts["at_risk"]:
+        r = counts["at_risk"]
         parts.append(
-            f"At the current pace, {counts['at_risk']} task{'s' if counts['at_risk'] != 1 else ''} "
-            "may miss the deadline."
+            tr(
+                f"At the current pace, {r} task{'s' if r != 1 else ''} may miss the deadline.",
+                f"Dengan kecepatan sekarang, {r} task bisa melewati deadline.",
+            )
         )
     if shift["status"] == "AFTER_SHIFT":
-        parts.append("Your shift has ended for today.")
+        parts.append(tr("Your shift has ended for today.", "Shift kamu hari ini sudah selesai."))
     return " ".join(parts)
 
 
@@ -181,11 +211,12 @@ def recommend_next(tasks: list[Task], settings: UserSettings, now: datetime) -> 
     queue = plan["recommended_tasks"]
     if not queue:
         blocked = plan["blocked_tasks"]
-        message = "There is no task you can work on right now."
+        message = tr("There is no task you can work on right now.", "Belum ada task yang bisa dikerjakan sekarang.")
         if blocked:
-            message += (
-                f" {len(blocked)} task{'s are' if len(blocked) != 1 else ' is'} waiting on others. "
-                "Check whether any answers have arrived."
+            n = len(blocked)
+            message += tr(
+                f" {n} task{'s are' if n != 1 else ' is'} waiting on others. Check whether any answers have arrived.",
+                f" {n} task menunggu pihak lain. Cek apakah sudah ada jawaban yang masuk.",
             )
         return {"recommendation": None, "follow_up": None, "explanation": message, "alternatives": []}
 
@@ -195,9 +226,16 @@ def recommend_next(tasks: list[Task], settings: UserSettings, now: datetime) -> 
     if top["missing_documents"]:
         follow_up = {
             "task": top,
-            "action": f"Request the missing document(s) for {_label(top)}: {', '.join(top['missing_documents'])}",
-            "why": "It is the most urgent task but cannot be fully completed without these documents. "
-            "Sending the request now gives the sender time to respond.",
+            "action": tr(
+                f"Request the missing document(s) for {_label(top)}: {', '.join(top['missing_documents'])}",
+                f"Minta dokumen yang kurang untuk {_label(top)}: {', '.join(top['missing_documents'])}",
+            ),
+            "why": tr(
+                "It is the most urgent task but cannot be fully completed without these documents. "
+                "Sending the request now gives the sender time to respond.",
+                "Ini task paling mendesak, tapi tidak bisa diselesaikan tanpa dokumen tersebut. "
+                "Meminta sekarang memberi waktu pengirim untuk merespons.",
+            ),
         }
         complete = next((q["task"] for q in queue[1:] if not q["task"]["missing_documents"]), None)
         if complete:
@@ -228,29 +266,53 @@ def _explain(t: dict, after_follow_up: bool) -> str:
     label = _label(t)
     reasons = [r[0].lower() + r[1:] for r in t["priority_reasons"][:2]]
     if reasons:
-        text = f"{label} is recommended because {' and '.join(reasons)}."
+        text = tr(
+            f"{label} is recommended because {' and '.join(reasons)}.",
+            f"{label} direkomendasikan karena {' dan '.join(reasons)}.",
+        )
     else:
-        text = f"{label} is the highest priority workable task right now."
+        text = tr(
+            f"{label} is the highest priority workable task right now.",
+            f"{label} adalah task dengan prioritas tertinggi yang bisa dikerjakan sekarang.",
+        )
     if t["deadline"]["overdue"]:
-        text += (
+        text += tr(
             " The deadline has already passed, so inform the appropriate person according to "
-            "the SOP while you complete it."
+            "the SOP while you complete it.",
+            " Deadline sudah lewat, jadi beri tahu orang yang tepat sesuai SOP sambil kamu menyelesaikannya.",
         )
     if after_follow_up:
-        text = "While waiting for the missing documents, continue with a task you can finish. " + text
+        text = (
+            tr(
+                "While waiting for the missing documents, continue with a task you can finish. ",
+                "Sambil menunggu dokumen yang kurang, lanjutkan task yang bisa kamu selesaikan. ",
+            )
+            + text
+        )
 
     state = []
     if not t["missing_documents"]:
-        state.append("the document set is complete")
+        state.append(tr("the document set is complete", "dokumennya sudah lengkap"))
     if t["open_issue_count"]:
+        n = t["open_issue_count"]
         state.append(
-            f"there {'is' if t['open_issue_count'] == 1 else 'are'} {t['open_issue_count']} "
-            "open issue(s) to verify first"
+            tr(
+                f"there {'is' if n == 1 else 'are'} {n} open issue(s) to verify first",
+                f"ada {n} masalah terbuka yang perlu diverifikasi dulu",
+            )
         )
     else:
-        state.append("no open issue has been recorded")
-    text += " " + state[0][0].upper() + state[0][1:] + (f" and {state[1]}." if len(state) > 1 else ".")
+        state.append(tr("no open issue has been recorded", "belum ada masalah terbuka yang dicatat"))
+    joined = state[0][0].upper() + state[0][1:] + (tr(
+        f" and {state[1]}.",
+        f" dan {state[1]}.",
+    ) if len(state) > 1 else ".")
+    text += " " + joined
     minutes = t["deadline"]["minutes_remaining"]
     if minutes is not None and minutes >= 0:
-        text += f" Estimated processing time is {t['estimated_minutes']}m with {format_duration(minutes)} left."
+        est, left = t["estimated_minutes"], format_duration(minutes)
+        text += tr(
+            f" Estimated processing time is {est}m with {left} left.",
+            f" Perkiraan waktu pengerjaan {est}m dengan sisa waktu {left}.",
+        )
     return text

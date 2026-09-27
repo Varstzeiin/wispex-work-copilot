@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.i18n import tr
 from app.core.security import get_current_user
 from app.models import User
 from app.schemas.performance import ShiftReflection, WeeklyReflection
@@ -16,7 +17,10 @@ router = APIRouter(prefix="/reviews", tags=["reviews"])
 
 def _not_future(day: date, db: Session, user: User) -> None:
     if day > review_service.local_today(get_user_settings(db, user)):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot review a day that has not happened yet.")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, tr(
+            "You cannot review a day that has not happened yet.",
+            "Hari yang belum terjadi tidak bisa direview.",
+        ))
 
 
 @router.get("/shift")

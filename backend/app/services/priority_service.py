@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
+from app.core.i18n import tr
 from app.models import Task
 from app.rules.deadline_rules import evaluate_deadline, format_duration, merged_thresholds
 
@@ -87,15 +88,17 @@ def calculate_priority(
 ) -> PriorityResult:
     w = merged_weights(weights)
     levels = merged_level_thresholds(weights)
-    t = merged_thresholds(deadline_thresholds)
+    limits = merged_thresholds(deadline_thresholds)
 
     if task.is_closed:
+        closed = tr("completed", "selesai") if task.status == "COMPLETED" else tr("cancelled", "dibatalkan")
         return PriorityResult(
-            0, "NONE", "LOW", "SAFE_TO_PROCEED", "Task is closed.", [f"Task is {task.status.lower()}"]
+            0, "NONE", "LOW", "SAFE_TO_PROCEED", tr("Task is closed.", "Task sudah ditutup."),
+            [tr(f"Task is {closed}", f"Task {closed}")],
         )
 
     factors: list[Factor] = []
-    deadline = evaluate_deadline(task.submission_deadline, now, t)
+    deadline = evaluate_deadline(task.submission_deadline, now, limits)
     est = max(task.estimated_minutes or 0, 0)
 
     # 1. Deadline proximity (uses slack = time remaining minus estimated processing time)
@@ -104,18 +107,23 @@ def calculate_priority(
         slack = None
     else:
         slack = deadline.minutes_remaining - est
-        frac = _deadline_fraction(deadline.minutes_remaining, slack, t)
+        frac = _deadline_fraction(deadline.minutes_remaining, slack, limits)
+        left = format_duration(deadline.minutes_remaining)
         if deadline.overdue:
-            reason = f"Submission deadline passed {format_duration(deadline.minutes_remaining)} ago"
+            reason = tr(f"Submission deadline passed {left} ago", f"Deadline pengajuan sudah lewat {left}")
         elif slack <= 0:
-            reason = (
-                f"Deadline in {format_duration(deadline.minutes_remaining)} but the task needs "
-                f"about {est}m. Not enough time unless started now"
+            reason = tr(
+                f"Deadline in {left} but the task needs about {est}m. Not enough time unless started now",
+                f"Deadline {left} lagi, padahal task butuh sekitar {est}m. Waktunya tidak cukup kalau tidak dimulai "
+                "sekarang",
             )
         elif frac >= 0.65:
-            reason = f"Submission deadline is approaching ({format_duration(deadline.minutes_remaining)} left)"
+            reason = tr(
+                f"Submission deadline is approaching ({left} left)",
+                f"Deadline pengajuan makin dekat (sisa {left})",
+            )
         elif frac >= 0.2:
-            reason = f"Deadline within {format_duration(deadline.minutes_remaining)}"
+            reason = tr(f"Deadline within {left}", f"Deadline dalam {left}")
         else:
             reason = None
         factors.append(Factor("deadline", frac * w["deadline"], w["deadline"], reason))
@@ -126,11 +134,16 @@ def calculate_priority(
     else:
         eta_minutes = (task.eta - now).total_seconds() / 60
         if eta_minutes <= 0:
-            frac, reason = 1.0, "Shipment ETA has passed (cargo may already be waiting)"
+            frac, reason = 1.0, tr(
+                "Shipment ETA has passed (cargo may already be waiting)",
+                "ETA shipment sudah lewat (kargo mungkin sudah menunggu)",
+            )
         elif eta_minutes <= 240:
-            frac, reason = 0.8, f"ETA is within the next {format_duration(int(eta_minutes))}"
+            eta_in = format_duration(int(eta_minutes))
+            frac, reason = 0.8, tr(f"ETA is within the next {eta_in}", f"ETA dalam {eta_in} ke depan")
         elif eta_minutes <= 720:
-            frac, reason = 0.5, f"ETA in {format_duration(int(eta_minutes))}"
+            eta_in = format_duration(int(eta_minutes))
+            frac, reason = 0.5, tr(f"ETA in {eta_in}", f"ETA {eta_in} lagi")
         elif eta_minutes <= 1440:
             frac, reason = 0.25, None
         else:
@@ -142,8 +155,11 @@ def calculate_priority(
     if open_issues:
         frac = min(1.0, 0.5 * len(open_issues))
         first = open_issues[0].get("description") or open_issues[0].get("type", "issue")
-        extra = f" (+{len(open_issues) - 1} more)" if len(open_issues) > 1 else ""
-        reason = f"Open issue: {first}{extra}"
+        extra = tr(
+            f" (+{len(open_issues) - 1} more)",
+            f" (+{len(open_issues) - 1} lagi)",
+        ) if len(open_issues) > 1 else ""
+        reason = tr(f"Open issue: {first}{extra}", f"Masalah terbuka: {first}{extra}")
         factors.append(Factor("risk", frac * w["risk"], w["risk"], reason))
     else:
         factors.append(Factor("risk", 0, w["risk"]))
@@ -153,9 +169,9 @@ def calculate_priority(
     required = task.required_documents or []
     if missing and required:
         frac = len(missing) / len(required)
-        reason = (
-            f"{len(missing)} of {len(required)} required documents missing "
-            f"({', '.join(missing)}). Follow-up needed"
+        reason = tr(
+            f"{len(missing)} of {len(required)} required documents missing ({', '.join(missing)}). Follow-up needed",
+            f"{len(missing)} dari {len(required)} dokumen wajib kurang ({', '.join(missing)}). Perlu di-follow-up",
         )
         factors.append(Factor("missing_documents", frac * w["missing_documents"], w["missing_documents"], reason))
     else:
@@ -164,12 +180,19 @@ def calculate_priority(
     # 5. Client / SLA priority (only if the user entered one)
     tier = (client_sla_tier or "").upper()
     frac = {"HIGH": 1.0, "STANDARD": 0.4}.get(tier, 0.0)
-    reason = "Client marked as high SLA priority (your setting)" if tier == "HIGH" else None
+    reason = (
+        tr("Client marked as high SLA priority (your setting)", "Klien ditandai prioritas SLA tinggi (pengaturanmu)")
+        if tier == "HIGH"
+        else None
+    )
     factors.append(Factor("client_priority", frac * w["client_priority"], w["client_priority"], reason))
 
     # 6. Processing complexity
     if est >= 60:
-        frac, reason = 1.0, f"Long processing time (~{est}m). Start early"
+        frac, reason = 1.0, tr(
+            f"Long processing time (~{est}m). Start early",
+            f"Waktu pengerjaan lama (~{est}m). Mulai lebih awal",
+        )
     elif est >= 30:
         frac, reason = 0.5, None
     else:
@@ -179,7 +202,8 @@ def calculate_priority(
     # 7. Task age
     age_hours = (now - task.created_at).total_seconds() / 3600 if task.created_at else 0
     if age_hours >= 48:
-        frac, reason = 1.0, f"Task has been open for {int(age_hours // 24)} days"
+        days = int(age_hours // 24)
+        frac, reason = 1.0, tr(f"Task has been open for {days} days", f"Task sudah terbuka selama {days} hari")
     elif age_hours >= 24:
         frac, reason = 0.5, None
     else:
@@ -203,7 +227,7 @@ def calculate_priority(
     tight = deadline.status in ("OVERDUE", "CRITICAL", "URGENT")
     if deadline.overdue or (open_issues and tight) or (missing and tight):
         risk_level = "HIGH"
-    elif open_issues or missing or (slack is not None and slack <= t["critical_minutes"]):
+    elif open_issues or missing or (slack is not None and slack <= limits["critical_minutes"]):
         risk_level = "MEDIUM"
     else:
         risk_level = "LOW"
@@ -216,23 +240,45 @@ def calculate_priority(
 def _guidance(task: Task, deadline_status: str, missing: list, open_issues: list) -> tuple[str, str]:
     """Suggested next posture. This is guidance only and never replaces the applicable SOP."""
     if task.status == "ON_HOLD":
-        return "HOLD", "Task is on hold. Wait for instructions before continuing."
+        return "HOLD", tr(
+            "Task is on hold. Wait for instructions before continuing.",
+            "Task sedang ditahan. Tunggu arahan sebelum melanjutkan.",
+        )
     if task.status == "ESCALATED":
-        return "HOLD", "Already escalated. Continue only the parts that are not affected."
+        return "HOLD", tr(
+            "Already escalated. Continue only the parts that are not affected.",
+            "Sudah dieskalasi. Lanjutkan hanya bagian yang tidak terdampak.",
+        )
     tight = deadline_status in ("OVERDUE", "CRITICAL")
     if tight and (missing or open_issues):
         return (
             "ESCALATE",
-            "Deadline is very close and the task still has unresolved items. "
-            "Consider escalating according to the applicable SOP.",
+            tr(
+                "Deadline is very close and the task still has unresolved items. "
+                "Consider escalating according to the applicable SOP.",
+                "Deadline sudah sangat dekat dan task masih punya hal yang belum selesai. "
+                "Pertimbangkan eskalasi sesuai SOP yang berlaku.",
+            ),
         )
     if deadline_status == "OVERDUE":
-        return "ESCALATE", "Deadline has passed. Inform the appropriate person according to the SOP."
+        return "ESCALATE", tr(
+            "Deadline has passed. Inform the appropriate person according to the SOP.",
+            "Deadline sudah lewat. Beri tahu orang yang tepat sesuai SOP.",
+        )
     if missing:
-        return "ASK", f"Request the missing document(s): {', '.join(missing)}."
+        return "ASK", tr(
+            f"Request the missing document(s): {', '.join(missing)}.",
+            f"Minta dokumen yang kurang: {', '.join(missing)}.",
+        )
     if open_issues:
-        return "VERIFY", "Verify the open issue against the source documents before submitting."
-    return "SAFE_TO_PROCEED", "Documents complete and no open issues recorded. Still verify before submission."
+        return "VERIFY", tr(
+            "Verify the open issue against the source documents before submitting.",
+            "Verifikasi masalah yang terbuka dengan dokumen sumber sebelum mengirim.",
+        )
+    return "SAFE_TO_PROCEED", tr(
+        "Documents complete and no open issues recorded. Still verify before submission.",
+        "Dokumen lengkap dan tidak ada masalah terbuka. Tetap verifikasi sebelum mengirim.",
+    )
 
 
 def apply_priority(task: Task, result: PriorityResult) -> bool:

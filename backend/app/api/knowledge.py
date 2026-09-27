@@ -58,7 +58,7 @@ def list_notes(
         results = ks.search(db, user, q, limit=20)
         if category:
             results = [r for r in results if r["kind"] == "NOTE" and r["category"] == category]
-        return {"mode": "search", "results": ks.public(results), "message": "" if results else ks.NO_SOURCE_MESSAGE}
+        return {"mode": "search", "results": ks.public(results), "message": "" if results else ks.no_source_message()}
     stmt = select(KnowledgeNote).where(KnowledgeNote.user_id == user.id)
     if category:
         stmt = stmt.where(KnowledgeNote.category == category)

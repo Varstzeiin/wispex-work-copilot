@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import utcnow
+from app.core.i18n import language, tr
 from app.models import CalendarEvent, Client, DocumentSettings, Shipment, Task, User, UserSettings
 from app.models.document import DEFAULT_FINAL_CHECKLIST
 from app.rules.deadline_rules import evaluate_deadline
@@ -22,7 +23,7 @@ def get_task_for_user(db: Session, user: User, task_id: uuid.UUID) -> Task:
     task = db.get(Task, task_id)
     # Same response for "missing" and "not yours" so IDs cannot be probed
     if task is None or task.user_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found.")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, tr("Task not found.", "Task tidak ditemukan."))
     return task
 
 
@@ -88,13 +89,16 @@ def _normalise_issues(issues) -> list[dict]:
 # ---------- Priority ----------
 
 def refresh_priority(task: Task, settings: UserSettings, now: Optional[datetime] = None) -> bool:
-    result = calculate_priority(
-        task,
-        now or utcnow(),
-        client_sla_tier=task.client.sla_tier if task.client else None,
-        weights=settings.priority_weights,
-        deadline_thresholds=settings.deadline_thresholds,
-    )
+    # Stored in English: the language of a request must not look like a change. Responses are
+    # calculated again in the request's language (see task_out).
+    with language("en"):
+        result = calculate_priority(
+            task,
+            now or utcnow(),
+            client_sla_tier=task.client.sla_tier if task.client else None,
+            weights=settings.priority_weights,
+            deadline_thresholds=settings.deadline_thresholds,
+        )
     return apply_priority(task, result)
 
 
@@ -192,19 +196,27 @@ def change_status(db: Session, user: User, task: Task, data: StatusChange) -> Ta
     if new == "COMPLETED":
         blockers = []
         if task.missing_documents:
-            blockers.append(f"Missing documents: {', '.join(task.missing_documents)}")
+            missing = ", ".join(task.missing_documents)
+            blockers.append(tr(f"Missing documents: {missing}", f"Dokumen kurang: {missing}"))
         if task.open_issues:
-            blockers.append(f"{len(task.open_issues)} open issue(s) not resolved")
+            n = len(task.open_issues)
+            blockers.append(tr(f"{n} open issue(s) not resolved", f"{n} masalah terbuka belum selesai"))
         if blockers:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "This task cannot be completed yet. " + ". ".join(blockers)
-                + ". Resolve them, or record the instruction you received, first.",
+                tr("This task cannot be completed yet. ", "Task ini belum bisa diselesaikan. ") + ". ".join(blockers)
+                + tr(
+                    ". Resolve them, or record the instruction you received, first.",
+                    ". Selesaikan dulu, atau catat arahan yang kamu terima.",
+                ),
             )
         if not data.confirm_verified:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "Please confirm that you verified the task before completing it.",
+                tr(
+                    "Please confirm that you verified the task before completing it.",
+                    "Konfirmasi dulu bahwa kamu sudah memverifikasi task sebelum menyelesaikannya.",
+                ),
             )
         doc_settings = db.get(DocumentSettings, user.id)
         checklist = doc_settings.final_checklist if doc_settings else list(DEFAULT_FINAL_CHECKLIST)
@@ -212,8 +224,9 @@ def change_status(db: Session, user: User, task: Task, data: StatusChange) -> Ta
         if unticked:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                f"Final checklist not complete: {', '.join(unticked[:3])}"
-                + (f" and {len(unticked) - 3} more" if len(unticked) > 3 else "")
+                tr("Final checklist not complete: ", "Checklist akhir belum lengkap: ")
+                + ", ".join(unticked[:3])
+                + (tr(f" and {len(unticked) - 3} more", f" dan {len(unticked) - 3} lagi") if len(unticked) > 3 else "")
                 + ".",
             )
 

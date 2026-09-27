@@ -8,10 +8,12 @@
  * browser language. Changing it re-renders the whole app, so plain functions and label maps
  * (see localize) pick up the new language without hooks.
  *
- * Text that comes from the server (priority reasons, advice, error messages) stays in English.
+ * Every API request sends the language in the X-Language header, so text made by the server
+ * (priority reasons, advice, error messages) follows it too. Drafts for other people stay English.
  */
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { mutate } from "swr";
 
 export type Lang = "en" | "id";
 
@@ -80,11 +82,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     // Only an explicit choice is saved, so a browser-language default can still follow the browser
     const preferred = preferredLang();
     applyLang(preferred);
+    if (preferred !== "en") void mutate(() => true); // data fetched before this point is in English
     setLangState(preferred);
   }, []);
 
   function setLang(next: Lang) {
     applyLang(next);
+    // Cached server data holds text in the previous language: fetch it again
+    void mutate(() => true);
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {

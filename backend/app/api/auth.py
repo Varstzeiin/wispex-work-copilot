@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import create_user_rows, get_db, utcnow
+from app.core.i18n import tr
 from app.core.security import (
     AUTH_COOKIE,
     auth_rate_limiter,
@@ -52,7 +53,10 @@ def register(data: RegisterIn, request: Request, response: Response, db: Session
     auth_rate_limiter.check(f"register:{_client_key(request)}")
     email = data.email.lower()
     if db.scalar(select(User).where(User.email == email)):
-        raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists.")
+        raise HTTPException(status.HTTP_409_CONFLICT, tr(
+            "An account with this email already exists.",
+            "Akun dengan email ini sudah ada.",
+        ))
     user = User(email=email, password_hash=hash_password(data.password), full_name=data.full_name.strip())
     db.add(user)
     db.flush()
@@ -69,7 +73,10 @@ def login(data: LoginIn, request: Request, response: Response, db: Session = Dep
     auth_rate_limiter.check(f"login:{_client_key(request)}")
     user = db.scalar(select(User).where(User.email == data.email.lower()))
     if user is None or user.is_demo or not verify_password(data.password, user.password_hash):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email or password is incorrect.")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, tr(
+            "Email or password is incorrect.",
+            "Email atau password salah.",
+        ))
     audit_service.log(db, user.id, "USER_LOGGED_IN", "user", user.id)
     db.commit()
     set_session_cookie(response, user)

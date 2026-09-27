@@ -1,3 +1,4 @@
+
 """Deadline engine: deterministic rules for time remaining and urgency.
 
 Thresholds are personal settings, not company policy.
@@ -6,6 +7,8 @@ Thresholds are personal settings, not company policy.
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
+
+from app.core.i18n import tr
 
 DEFAULT_DEADLINE_THRESHOLDS = {
     "critical_minutes": 60,  # <= 1h remaining
@@ -47,37 +50,44 @@ def format_duration(minutes: int) -> str:
     minutes = abs(int(minutes))
     days, rem = divmod(minutes, 60 * 24)
     hours, mins = divmod(rem, 60)
+    d, h = tr("d", "h"), tr("h", "j")  # Indonesian: hari, jam
     if days:
-        return f"{days}d {hours}h"
+        return f"{days}{d} {hours}{h}"
     if hours:
-        return f"{hours}h {mins}m"
+        return f"{hours}{h} {mins}m"
     return f"{mins}m"
 
 
 def evaluate_deadline(
     deadline: Optional[datetime], now: datetime, thresholds: Optional[dict] = None
 ) -> DeadlineInfo:
-    t = merged_thresholds(thresholds)
+    limits = merged_thresholds(thresholds)
     if deadline is None:
-        return DeadlineInfo("NO_DEADLINE", None, False, False, "No deadline set")
+        return DeadlineInfo("NO_DEADLINE", None, False, False, tr("No deadline set", "Belum ada deadline"))
 
     # Floor to whole minutes so the label never claims more time than there is
     seconds = (deadline - now).total_seconds()
     minutes = int(seconds // 60)
 
     if seconds < 0:
-        return DeadlineInfo("OVERDUE", minutes, True, False, f"Overdue by {format_duration(minutes)}")
-    if minutes <= t["critical_minutes"]:
+        return DeadlineInfo(
+            "OVERDUE", minutes, True, False,
+            tr(f"Overdue by {format_duration(minutes)}", f"Terlambat {format_duration(minutes)}"),
+        )
+    if minutes <= limits["critical_minutes"]:
         status = "CRITICAL"
-    elif minutes <= t["urgent_minutes"]:
+    elif minutes <= limits["urgent_minutes"]:
         status = "URGENT"
-    elif minutes <= t["watch_minutes"]:
+    elif minutes <= limits["watch_minutes"]:
         status = "WATCH"
     else:
         status = "SAFE"
 
     approaching = (
         status != "CRITICAL"
-        and minutes <= t["critical_minutes"] + t["warn_before_critical_minutes"]
+        and minutes <= limits["critical_minutes"] + limits["warn_before_critical_minutes"]
     )
-    return DeadlineInfo(status, minutes, False, approaching, f"{format_duration(minutes)} remaining")
+    return DeadlineInfo(
+        status, minutes, False, approaching,
+        tr(f"{format_duration(minutes)} remaining", f"sisa {format_duration(minutes)}"),
+    )
