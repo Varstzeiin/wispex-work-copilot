@@ -12,6 +12,7 @@ import { errorMessage } from "@/lib/api/client";
 import { useSettings } from "@/lib/hooks";
 import { DOC_FIELD_LABEL, DOC_TYPE_LABEL, PROCESSING_STATUS } from "@/lib/utils/labels";
 import { formatDateTime } from "@/lib/utils/time";
+import { t } from "@/lib/i18n";
 
 export default function ShipmentDocumentsPage() {
   const { ref } = useParams<{ ref: string }>();
@@ -31,27 +32,27 @@ export default function ShipmentDocumentsPage() {
   return (
     <div className="space-y-4">
       <button onClick={() => router.back()} className="flex items-center gap-1 text-sm font-medium text-slate-600">
-        <ArrowLeft className="h-4 w-4" aria-hidden /> Back
+        <ArrowLeft className="h-4 w-4" aria-hidden /> {t("Back", "Kembali")}
       </button>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{data.shipment_reference}</h1>
           {data.task_id && (
             <Link href={`/tasks/${data.task_id}`} className="text-sm font-semibold text-brand-700">
-              Open task
+              {t("Open task", "Buka task")}
             </Link>
           )}
         </div>
         <LinkButton href={`/documents/upload?ref=${encodeURIComponent(reference)}${data.task_id ? `&task=${data.task_id}` : ""}`}>
-          <Upload className="h-4 w-4" aria-hidden /> Add documents
+          <Upload className="h-4 w-4" aria-hidden /> {t("Add documents", "Tambah dokumen")}
         </LinkButton>
       </div>
 
       <Card>
         <div className="flex items-center justify-between gap-2">
-          <SectionTitle>Completeness</SectionTitle>
+          <SectionTitle>{t("Completeness", "Kelengkapan")}</SectionTitle>
           <span className={clsx("text-lg font-bold tabular-nums", c.missing.length ? "text-orange-700" : "text-emerald-700")}>
-            {c.available} / {c.total} documents available
+            {c.available} / {c.total} {t("documents available", "dokumen tersedia")}
           </span>
         </div>
         <ul className="flex flex-wrap gap-2 text-sm">
@@ -61,7 +62,7 @@ export default function ShipmentDocumentsPage() {
               <li key={r} className={clsx("flex items-center gap-1 rounded-full px-2.5 py-1", missing ? "bg-orange-50 text-orange-900" : "bg-emerald-50 text-emerald-800")}>
                 {missing ? <FileWarning className="h-3.5 w-3.5" aria-hidden /> : <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />}
                 {r}
-                <span className="sr-only">{missing ? "missing" : "available"}</span>
+                <span className="sr-only">{missing ? t("missing", "kurang") : t("available", "tersedia")}</span>
               </li>
             );
           })}
@@ -70,15 +71,19 @@ export default function ShipmentDocumentsPage() {
 
       {data.notes.map((n) => (
         <p key={n} className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">
-          <Layers className="h-4 w-4 shrink-0" aria-hidden /> {n} Open one of the versions below to compare them.
+          <Layers className="h-4 w-4 shrink-0" aria-hidden /> {n}{" "}
+          {t("Open one of the versions below to compare them.", "Buka salah satu versi di bawah untuk membandingkannya.")}
         </p>
       ))}
 
       <section>
-        <SectionTitle>Cross-document check</SectionTitle>
+        <SectionTitle>{t("Cross-document check", "Cek antar dokumen")}</SectionTitle>
         {open.length === 0 && mismatches.length === 0 ? (
-          <EmptyState title="No potential mismatches found">
-            Comparisons only cover values that were found. Still verify against the source documents.
+          <EmptyState title={t("No potential mismatches found", "Tidak ada potensi selisih")}>
+            {t(
+              "Comparisons only cover values that were found. Still verify against the source documents.",
+              "Perbandingan hanya mencakup nilai yang ditemukan. Tetap verifikasi dengan dokumen sumber.",
+            )}
           </EmptyState>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
@@ -91,7 +96,7 @@ export default function ShipmentDocumentsPage() {
 
       {data.comparisons.length > 0 && (
         <Card>
-          <SectionTitle>All comparisons</SectionTitle>
+          <SectionTitle>{t("All comparisons", "Semua perbandingan")}</SectionTitle>
           {/* A list instead of a table, so the result stays visible on narrow phones */}
           <ul className="divide-y divide-slate-100">
             {data.comparisons.map((x, i) => (
@@ -100,15 +105,16 @@ export default function ShipmentDocumentsPage() {
                   <span className="font-medium text-slate-900">{DOC_FIELD_LABEL[x.field] ?? x.field}</span>
                   {x.status === "MATCH" ? (
                     <span className="inline-flex shrink-0 items-center gap-1 text-emerald-700">
-                      <CheckCircle2 className="h-4 w-4" aria-hidden /> Match
+                      <CheckCircle2 className="h-4 w-4" aria-hidden /> {t("Match", "Cocok")}
                     </span>
                   ) : x.status === "POTENTIAL_MISMATCH" ? (
                     <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-red-700">
-                      <Scale className="h-4 w-4" aria-hidden /> Mismatch{x.difference && x.difference !== "different" ? ` (${x.difference})` : ""}
+                      <Scale className="h-4 w-4" aria-hidden /> {t("Mismatch", "Selisih")}
+                      {x.difference && x.difference !== "different" ? ` (${x.difference})` : ""}
                     </span>
                   ) : (
                     <span className="inline-flex shrink-0 items-center gap-1 text-slate-500">
-                      <CircleSlash className="h-4 w-4" aria-hidden /> Cannot compare
+                      <CircleSlash className="h-4 w-4" aria-hidden /> {t("Cannot compare", "Tidak bisa dibandingkan")}
                     </span>
                   )}
                 </div>
@@ -127,13 +133,16 @@ export default function ShipmentDocumentsPage() {
             ))}
           </ul>
           <p className="mt-2 text-xs text-slate-500">
-            A match only means the values agree with each other. The system never decides which document is correct.
+            {t(
+              "A match only means the values agree with each other. The system never decides which document is correct.",
+              "Cocok hanya berarti nilainya saling sama. Sistem tidak pernah memutuskan dokumen mana yang benar.",
+            )}
           </p>
         </Card>
       )}
 
       <Card>
-        <SectionTitle>Documents</SectionTitle>
+        <SectionTitle>{t("Documents", "Dokumen")}</SectionTitle>
         <ul className="divide-y divide-slate-100">
           {data.documents.map((d) => (
             <li key={d.id}>
@@ -142,7 +151,7 @@ export default function ShipmentDocumentsPage() {
                   <span className="font-semibold text-slate-900">{DOC_TYPE_LABEL[d.document_type]}</span>
                   {d.version_count > 1 && (
                     <Badge className={clsx("ml-2", d.is_active_version ? "bg-emerald-100 text-emerald-800" : "bg-violet-100 text-violet-800")}>
-                      {d.is_active_version ? "Chosen version" : "Version"}
+                      {d.is_active_version ? t("Chosen version", "Versi terpilih") : t("Version", "Versi")}
                     </Badge>
                   )}
                   <span className="block truncate text-xs text-slate-500">
@@ -150,7 +159,7 @@ export default function ShipmentDocumentsPage() {
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
-                  {d.review_count > 0 && <Badge className="bg-amber-100 text-amber-900">{d.review_count} to review</Badge>}
+                  {d.review_count > 0 && <Badge className="bg-amber-100 text-amber-900">{d.review_count} {t("to review", "perlu dicek")}</Badge>}
                   <Badge className={PROCESSING_STATUS[d.processing_status].style}>{PROCESSING_STATUS[d.processing_status].label}</Badge>
                 </span>
               </Link>
@@ -161,7 +170,7 @@ export default function ShipmentDocumentsPage() {
 
       {closed.length > 0 && (
         <section>
-          <SectionTitle>Closed discrepancies</SectionTitle>
+          <SectionTitle>{t("Closed discrepancies", "Selisih yang sudah ditutup")}</SectionTitle>
           <div className="grid gap-3 md:grid-cols-2">
             {closed.map((d) => (
               <DiscrepancyCard key={d.id} d={d} />

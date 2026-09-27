@@ -15,6 +15,7 @@ import { useTasks } from "@/features/task-management/hooks";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
 import { RECOMMENDATION_STYLE } from "@/lib/utils/labels";
+import { t } from "@/lib/i18n";
 import type { Clarification, UnsureResult } from "@/types";
 
 export default function UnsurePage() {
@@ -37,7 +38,7 @@ function UnsureForm() {
   const [issue, setIssue] = useState("");
   const [evidence, setEvidence] = useState("");
   const [ask, setAsk] = useState("");
-  const [greeting, setGreeting] = useState("Hi");
+  const [greeting, setGreeting] = useState(() => t("Hi", "Halo"));
   const [askedTo, setAskedTo] = useState("Senior");
   const [compliance, setCompliance] = useState(false);
   const [financial, setFinancial] = useState(false);
@@ -96,51 +97,64 @@ function UnsureForm() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <PageHeader title="I'm not sure" subtitle="Check trusted sources first. If they do not answer it, ask a precise question." />
+      <PageHeader
+        title={t("I'm not sure", "Aku tidak yakin")}
+        subtitle={t(
+          "Check trusted sources first. If they do not answer it, ask a precise question.",
+          "Cek sumber tepercaya dulu. Kalau belum terjawab, ajukan pertanyaan yang jelas.",
+        )}
+      />
 
       <Card>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Task" htmlFor="task">
             <select id="task" className={inputClass} value={taskId} onChange={(e) => setTaskId(e.target.value)}>
-              <option value="">No specific task</option>
-              {tasks?.items.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.shipment_reference ?? t.title} · {t.deadline.label}
+              <option value="">{t("No specific task", "Tidak terkait task tertentu")}</option>
+              {tasks?.items.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.shipment_reference ?? task.title} · {task.deadline.label}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Field or topic" htmlFor="field">
-            <input id="field" className={inputClass} value={fieldName} onChange={(e) => setFieldName(e.target.value)} placeholder="e.g. Quantity" maxLength={120} />
+          <Field label={t("Field or topic", "Field atau topik")} htmlFor="field">
+            <input id="field" className={inputClass} value={fieldName} onChange={(e) => setFieldName(e.target.value)} placeholder={t("e.g. Quantity", "mis. Jumlah")} maxLength={120} />
           </Field>
         </div>
         <div className="mt-3 space-y-3">
-          <Field label="What is unclear?" htmlFor="issue">
-            <textarea id="issue" rows={2} className={inputClass} value={issue} onChange={(e) => setIssue(e.target.value)} placeholder="e.g. The Invoice and Packing List show different quantities" maxLength={1000} />
+          <Field label={t("What is unclear?", "Apa yang belum jelas?")} htmlFor="issue">
+            <textarea id="issue" rows={2} className={inputClass} value={issue} onChange={(e) => setIssue(e.target.value)} placeholder={t("e.g. The Invoice and Packing List show different quantities", "mis. Invoice dan Packing List menunjukkan jumlah berbeda")} maxLength={1000} />
           </Field>
-          <Field label="Evidence (optional)" htmlFor="evidence" hint="Exact values and where you saw them. Left empty, a matching document discrepancy is used.">
-            <textarea id="evidence" rows={2} className={inputClass} value={evidence} onChange={(e) => setEvidence(e.target.value)} placeholder="e.g. Invoice: 1,500 units. Packing List: 1,550 units" maxLength={1000} />
+          <Field
+            label={t("Evidence (optional)", "Bukti (opsional)")}
+            htmlFor="evidence"
+            hint={t(
+              "Exact values and where you saw them. Left empty, a matching document discrepancy is used.",
+              "Nilai persisnya dan di mana kamu melihatnya. Kalau dikosongkan, selisih dokumen yang cocok akan dipakai.",
+            )}
+          >
+            <textarea id="evidence" rows={2} className={inputClass} value={evidence} onChange={(e) => setEvidence(e.target.value)} placeholder={t("e.g. Invoice: 1,500 units. Packing List: 1,550 units", "mis. Invoice: 1.500 unit. Packing List: 1.550 unit")} maxLength={1000} />
           </Field>
-          <Field label="What do you need to know? (optional)" htmlFor="ask">
-            <input id="ask" className={inputClass} value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="e.g. which value should be used" maxLength={500} />
+          <Field label={t("What do you need to know? (optional)", "Apa yang perlu kamu ketahui? (opsional)")} htmlFor="ask">
+            <input id="ask" className={inputClass} value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={t("e.g. which value should be used", "mis. nilai mana yang harus dipakai")} maxLength={500} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Greeting" htmlFor="greeting">
+            <Field label={t("Greeting", "Sapaan")} htmlFor="greeting">
               <input id="greeting" className={inputClass} value={greeting} onChange={(e) => setGreeting(e.target.value)} maxLength={60} />
             </Field>
-            <Field label="Ask whom (role)" htmlFor="asked-to">
+            <Field label={t("Ask whom (role)", "Tanya ke siapa (peran)")} htmlFor="asked-to">
               <input id="asked-to" className={inputClass} value={askedTo} onChange={(e) => setAskedTo(e.target.value)} maxLength={80} />
             </Field>
           </div>
           <fieldset className="space-y-2 text-sm">
-            <legend className="text-sm font-medium text-slate-700">Possible impact</legend>
+            <legend className="text-sm font-medium text-slate-700">{t("Possible impact", "Kemungkinan dampak")}</legend>
             <label className="flex items-center gap-3">
               <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={compliance} onChange={(e) => setCompliance(e.target.checked)} />
-              Could affect compliance
+              {t("Could affect compliance", "Bisa memengaruhi kepatuhan")}
             </label>
             <label className="flex items-center gap-3">
               <input type="checkbox" className="h-5 w-5 accent-brand-600" checked={financial} onChange={(e) => setFinancial(e.target.checked)} />
-              Could affect value, duties or the client
+              {t("Could affect value, duties or the client", "Bisa memengaruhi nilai, bea, atau klien")}
             </label>
           </fieldset>
         </div>
@@ -148,7 +162,7 @@ function UnsureForm() {
           <InlineError message={error} />
         </div>
         <Button className="mt-3" block size="lg" loading={busy && !result} disabled={!online || issue.trim().length < 3} onClick={analyse}>
-          <ShieldQuestion className="h-5 w-5" aria-hidden /> {result ? "Check again" : "Check sources and draft a question"}
+          <ShieldQuestion className="h-5 w-5" aria-hidden /> {result ? t("Check again", "Cek lagi") : t("Check sources and draft a question", "Cek sumber dan buat draf pertanyaan")}
         </Button>
       </Card>
 
@@ -159,9 +173,9 @@ function UnsureForm() {
             <p className="mt-1 font-semibold">{result.assessment.headline}</p>
             {result.assessment.triggers.length > 0 && (
               <ul className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                {result.assessment.triggers.map((t) => (
-                  <li key={t.key} className="rounded-full bg-white/70 px-2 py-0.5 font-medium">
-                    {t.label}
+                {result.assessment.triggers.map((trigger) => (
+                  <li key={trigger.key} className="rounded-full bg-white/70 px-2 py-0.5 font-medium">
+                    {trigger.label}
                   </li>
                 ))}
               </ul>
@@ -177,38 +191,48 @@ function UnsureForm() {
                 </li>
               ))}
             </ol>
-            <p className="mt-2 text-xs opacity-80">A suggestion based on your data. You decide, following the applicable SOP.</p>
+            <p className="mt-2 text-xs opacity-80">
+              {t("A suggestion based on your data. You decide, following the applicable SOP.", "Saran berdasarkan datamu. Kamu yang memutuskan, sesuai SOP yang berlaku.")}
+            </p>
           </section>
 
           <Card>
-            <SectionTitle>1. What your trusted sources say</SectionTitle>
+            <SectionTitle>{t("1. What your trusted sources say", "1. Apa kata sumber tepercayamu")}</SectionTitle>
             {result.knowledge.length ? (
               <SourceList sources={result.knowledge} />
             ) : (
               <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{result.knowledge_message}</p>
             )}
             <Link href="/knowledge" className="mt-2 inline-block text-xs font-semibold text-brand-700">
-              Open knowledge base
+              {t("Open knowledge base", "Buka basis pengetahuan")}
             </Link>
           </Card>
 
           <Card>
-            <SectionTitle>2. Your question</SectionTitle>
-            <p className="mb-2 text-xs text-slate-500">Context → Specific issue → Evidence → Deadline → Question. Edit freely before sending.</p>
-            <textarea rows={7} className={inputClass} value={question} onChange={(e) => setQuestion(e.target.value)} aria-label="Question text" maxLength={3000} />
+            <SectionTitle>{t("2. Your question", "2. Pertanyaanmu")}</SectionTitle>
+            <p className="mb-2 text-xs text-slate-500">
+              {t(
+                "Context → Specific issue → Evidence → Deadline → Question. Edit freely before sending.",
+                "Konteks → Masalah spesifik → Bukti → Deadline → Pertanyaan. Silakan ubah sebelum dikirim.",
+              )}
+            </p>
+            <textarea rows={7} className={inputClass} value={question} onChange={(e) => setQuestion(e.target.value)} aria-label={t("Question text", "Teks pertanyaan")} maxLength={3000} />
             <div className="mt-2 flex flex-wrap items-start gap-2">
               <CopyButton text={question} />
               <RewriteButton text={question} onRewrite={setQuestion} />
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              Send it yourself through your usual work channel. Then record it here, so it stays visible on the task until you have the answer.
+              {t(
+                "Send it yourself through your usual work channel. Then record it here, so it stays visible on the task until you have the answer.",
+                "Kirim sendiri lewat channel kerja yang biasa kamu pakai. Lalu catat di sini, supaya tetap terlihat di task sampai kamu dapat jawabannya.",
+              )}
             </p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <Button onClick={() => record("QUESTION")} disabled={!online || busy || question.trim().length < 5}>
-                I asked this question
+                {t("I asked this question", "Aku sudah menanyakan ini")}
               </Button>
               <Button variant="secondary" onClick={() => record("ESCALATION")} disabled={!online || busy || question.trim().length < 5}>
-                I escalated this
+                {t("I escalated this", "Aku sudah mengeskalasi ini")}
               </Button>
             </div>
           </Card>

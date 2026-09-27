@@ -12,6 +12,7 @@ import { uploadWithProgress, useDocumentStatus, useRefreshDocuments } from "@/fe
 import { useTasks } from "@/features/task-management/hooks";
 import { useOnline } from "@/lib/hooks";
 import { DOC_TYPE_LABEL } from "@/lib/utils/labels";
+import { t } from "@/lib/i18n";
 import type { UploadResult } from "@/types";
 
 const SAMPLES = [
@@ -88,7 +89,7 @@ function UploadForm() {
       setFiles([]);
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The upload could not be completed.");
+      setError(e instanceof Error ? e.message : t("The upload could not be completed.", "Unggahan tidak bisa diselesaikan."));
     } finally {
       setProgress(null);
       setCancel(null);
@@ -96,11 +97,14 @@ function UploadForm() {
   }
 
   const uploading = progress !== null;
-  const selectedTask = tasks?.items.find((t) => t.id === taskId);
+  const selectedTask = tasks?.items.find((task) => task.id === taskId);
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <PageHeader title="Upload documents" subtitle="PDF, JPG or PNG. Up to 10 files at once." />
+      <PageHeader
+        title={t("Upload documents", "Unggah dokumen")}
+        subtitle={t("PDF, JPG or PNG. Up to 10 files at once.", "PDF, JPG, atau PNG. Maksimal 10 file sekaligus.")}
+      />
       <PrivacyNotice status={status} />
 
       <Card>
@@ -127,8 +131,13 @@ function UploadForm() {
           }}
         >
           <FileUp className="h-8 w-8 text-brand-600" aria-hidden />
-          <span className="font-semibold text-slate-900">Choose files or drop them here</span>
-          <span className="text-xs text-slate-500">Max {status?.max_upload_mb ?? 15} MB per file · PDFs up to {status?.max_pdf_pages ?? 50} pages</span>
+          <span className="font-semibold text-slate-900">{t("Choose files or drop them here", "Pilih file atau seret ke sini")}</span>
+          <span className="text-xs text-slate-500">
+            {t(
+              `Max ${status?.max_upload_mb ?? 15} MB per file · PDFs up to ${status?.max_pdf_pages ?? 50} pages`,
+              `Maks ${status?.max_upload_mb ?? 15} MB per file · PDF maks ${status?.max_pdf_pages ?? 50} halaman`,
+            )}
+          </span>
         </label>
 
         {files.length > 0 && (
@@ -140,7 +149,7 @@ function UploadForm() {
                   {formatSize(f.size)}
                 </span>
                 {!uploading && (
-                  <button onClick={() => setFiles(files.filter((x) => x !== f))} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label={`Remove ${f.name}`}>
+                  <button onClick={() => setFiles(files.filter((x) => x !== f))} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label={`${t("Remove", "Hapus")} ${f.name}`}>
                     <X className="h-4 w-4" />
                   </button>
                 )}
@@ -148,42 +157,54 @@ function UploadForm() {
             ))}
           </ul>
         )}
-        {tooBig.length > 0 && <p className="mt-2 text-xs text-red-700">Remove files larger than {status?.max_upload_mb ?? 15} MB.</p>}
+        {tooBig.length > 0 && (
+          <p className="mt-2 text-xs text-red-700">
+            {t(`Remove files larger than ${status?.max_upload_mb ?? 15} MB.`, `Hapus file yang lebih dari ${status?.max_upload_mb ?? 15} MB.`)}
+          </p>
+        )}
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Field label="Link to task (optional)" htmlFor="task">
+          <Field label={t("Link to task (optional)", "Hubungkan ke task (opsional)")} htmlFor="task">
             <select
               id="task"
               className={inputClass}
               value={taskId}
               onChange={(e) => {
                 setTaskId(e.target.value);
-                const t = tasks?.items.find((x) => x.id === e.target.value);
-                if (t?.shipment_reference) setReference(t.shipment_reference);
+                const task = tasks?.items.find((x) => x.id === e.target.value);
+                if (task?.shipment_reference) setReference(task.shipment_reference);
               }}
               disabled={uploading}
             >
-              <option value="">No task</option>
-              {tasks?.items.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.shipment_reference ?? t.title} · {t.deadline.label}
+              <option value="">{t("No task", "Tanpa task")}</option>
+              {tasks?.items.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.shipment_reference ?? task.title} · {task.deadline.label}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Shipment reference" htmlFor="reference" hint={selectedTask ? "Taken from the task." : "Groups the documents for comparison."}>
-            <input id="reference" className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} disabled={uploading || !!selectedTask?.shipment_reference} placeholder="e.g. SHP-DEMO-7" />
+          <Field
+            label={t("Shipment reference", "Referensi shipment")}
+            htmlFor="reference"
+            hint={selectedTask ? t("Taken from the task.", "Diambil dari task.") : t("Groups the documents for comparison.", "Mengelompokkan dokumen untuk dibandingkan.")}
+          >
+            <input id="reference" className={inputClass} value={reference} onChange={(e) => setReference(e.target.value)} disabled={uploading || !!selectedTask?.shipment_reference} placeholder={t("e.g. SHP-DEMO-7", "mis. SHP-DEMO-7")} />
           </Field>
           <Field
-            label="Document type"
+            label={t("Document type", "Jenis dokumen")}
             htmlFor="doctype"
-            hint={status?.ai_allowed ? "Leave on auto-detect to let the AI classify each file." : "Without AI, set the type here or on each document."}
+            hint={
+              status?.ai_allowed
+                ? t("Leave on auto-detect to let the AI classify each file.", "Biarkan deteksi otomatis agar AI mengenali jenis tiap file.")
+                : t("Without AI, set the type here or on each document.", "Tanpa AI, isi jenisnya di sini atau di tiap dokumen.")
+            }
           >
             <select id="doctype" className={inputClass} value={docType} onChange={(e) => setDocType(e.target.value)} disabled={uploading}>
-              <option value="">{status?.ai_allowed ? "Auto-detect" : "Set later"}</option>
-              {["INVOICE", "PACKING_LIST", "BILL_OF_LADING", "AIR_WAYBILL", "OTHER"].map((t) => (
-                <option key={t} value={t}>
-                  {DOC_TYPE_LABEL[t]}
+              <option value="">{status?.ai_allowed ? t("Auto-detect", "Deteksi otomatis") : t("Set later", "Isi nanti")}</option>
+              {["INVOICE", "PACKING_LIST", "BILL_OF_LADING", "AIR_WAYBILL", "OTHER"].map((type) => (
+                <option key={type} value={type}>
+                  {DOC_TYPE_LABEL[type]}
                 </option>
               ))}
             </select>
@@ -193,10 +214,14 @@ function UploadForm() {
         {uploading && (
           <div className="mt-4" role="status">
             <div className="flex items-center justify-between text-xs text-slate-600">
-              <span>{progress! < 1 ? `Uploading… ${Math.round(progress! * 100)}%` : "Checking files…"}</span>
+              <span>
+                {progress! < 1
+                  ? `${t("Uploading…", "Mengunggah…")} ${Math.round(progress! * 100)}%`
+                  : t("Checking files…", "Memeriksa file…")}
+              </span>
               {progress! < 1 && cancel && (
                 <button onClick={cancel} className="font-semibold text-red-700">
-                  Cancel upload
+                  {t("Cancel upload", "Batalkan unggahan")}
                 </button>
               )}
             </div>
@@ -209,13 +234,13 @@ function UploadForm() {
           <InlineError message={error} />
         </div>
         <Button className="mt-3" block size="lg" onClick={submit} loading={uploading} disabled={!online || !files.length || tooBig.length > 0}>
-          Upload {files.length ? `${files.length} file${files.length > 1 ? "s" : ""}` : ""}
+          {t("Upload", "Unggah")} {files.length ? `${files.length} ${t(files.length > 1 ? "files" : "file", "file")}` : ""}
         </Button>
       </Card>
 
       {result && (
         <Card>
-          <SectionTitle>Result</SectionTitle>
+          <SectionTitle>{t("Result", "Hasil")}</SectionTitle>
           <ul className="space-y-2 text-sm">
             {result.results.map((r, i) => (
               <li key={`${r.filename}-${i}`} className="flex items-start gap-2">
@@ -231,7 +256,7 @@ function UploadForm() {
                   {r.message && <span className="block text-slate-600">{r.message}</span>}
                   {r.document_id && (
                     <Link href={`/documents/${r.document_id}`} className="text-xs font-semibold text-brand-700">
-                      Open document
+                      {t("Open document", "Buka dokumen")}
                     </Link>
                   )}
                 </span>
@@ -240,18 +265,26 @@ function UploadForm() {
           </ul>
           {result.queued > 0 && (
             <p className="mt-3 rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-900">
-              {result.queued} file{result.queued > 1 ? "s are" : " is"} being analysed in the background. Results appear on the documents page.
+              {t(
+                `${result.queued} file${result.queued > 1 ? "s are" : " is"} being analysed in the background. Results appear on the documents page.`,
+                `${result.queued} file sedang dianalisis di latar belakang. Hasilnya muncul di halaman dokumen.`,
+              )}
             </p>
           )}
           <Link href={reference ? `/documents/shipment/${encodeURIComponent(reference)}` : "/documents"} className="mt-3 inline-block text-sm font-semibold text-brand-700">
-            Go to {reference ? `shipment ${reference}` : "documents"}
+            {t("Go to", "Buka")} {reference ? `shipment ${reference}` : t("documents", "dokumen")}
           </Link>
         </Card>
       )}
 
       <Card>
-        <SectionTitle>Try it with fictional samples</SectionTitle>
-        <p className="text-sm text-slate-600">Download invented documents for shipment SHP-DEMO-7, then upload them here. They contain deliberate mismatches.</p>
+        <SectionTitle>{t("Try it with fictional samples", "Coba dengan contoh fiktif")}</SectionTitle>
+        <p className="text-sm text-slate-600">
+          {t(
+            "Download invented documents for shipment SHP-DEMO-7, then upload them here. They contain deliberate mismatches.",
+            "Unduh dokumen karangan untuk shipment SHP-DEMO-7, lalu unggah di sini. Isinya sengaja dibuat ada selisih.",
+          )}
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {SAMPLES.map((s) => (
             <a key={s.key} href={`/api/documents/samples/${s.key}`} className="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">

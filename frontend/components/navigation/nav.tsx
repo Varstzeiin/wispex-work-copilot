@@ -81,7 +81,7 @@ export function BottomNav() {
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-      aria-label="Main"
+      aria-label={t("Main", "Utama")}
     >
       <ul className="grid grid-cols-5">
         {items.map((item) => {
@@ -156,7 +156,7 @@ export function Sidebar() {
           <span className="block text-xs font-medium text-slate-500">Work Copilot</span>
         </span>
       </Link>
-      <nav aria-label="Main" className="flex-1 overflow-y-auto">
+      <nav aria-label={t("Main", "Utama")} className="flex-1 overflow-y-auto">
         <ul className="space-y-0.5">{PRIMARY_NAV.map(render)}</ul>
         <hr className="my-3 border-slate-200" />
         <ul className="space-y-0.5">{SECONDARY_NAV.map(render)}</ul>

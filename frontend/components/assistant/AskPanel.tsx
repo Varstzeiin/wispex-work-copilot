@@ -8,6 +8,7 @@ import { SourceList } from "@/components/assistant/SourceList";
 import { Button, Card, InlineError, inputClass } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
+import { t } from "@/lib/i18n";
 import type { AskResult } from "@/types";
 
 /** Knowledge-first: search trusted sources before asking someone. */
@@ -33,9 +34,14 @@ export function AskPanel() {
   return (
     <Card>
       <h2 className="flex items-center gap-2 font-semibold text-slate-900">
-        <BookOpen className="h-4 w-4 text-brand-600" aria-hidden /> Search trusted knowledge
+        <BookOpen className="h-4 w-4 text-brand-600" aria-hidden /> {t("Search trusted knowledge", "Cari pengetahuan tepercaya")}
       </h2>
-      <p className="mt-0.5 text-xs text-slate-500">Training notes, SOP references, your notes, resolved cases and senior notes.</p>
+      <p className="mt-0.5 text-xs text-slate-500">
+        {t(
+          "Training notes, SOP references, your notes, resolved cases and senior notes.",
+          "Catatan pelatihan, referensi SOP, catatanmu, kasus yang sudah selesai, dan catatan senior.",
+        )}
+      </p>
       <form
         className="mt-3 flex gap-2"
         onSubmit={(e) => {
@@ -47,11 +53,14 @@ export function AskPanel() {
           className={inputClass}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="e.g. What if the quantity differs between Invoice and Packing List?"
-          aria-label="Your question"
+          placeholder={t(
+            "e.g. What if the quantity differs between Invoice and Packing List?",
+            "mis. Bagaimana kalau jumlah di Invoice dan Packing List berbeda?",
+          )}
+          aria-label={t("Your question", "Pertanyaanmu")}
           maxLength={500}
         />
-        <Button type="submit" loading={busy} disabled={!online || question.trim().length < 3} aria-label="Search">
+        <Button type="submit" loading={busy} disabled={!online || question.trim().length < 3} aria-label={t("Search", "Cari")}>
           <Search className="h-4 w-4" aria-hidden />
         </Button>
       </form>
@@ -64,7 +73,7 @@ export function AskPanel() {
         <div className="mt-3 space-y-3" aria-live="polite">
           {result.status === "ANSWERED" ? (
             <div className="rounded-xl border border-brand-200 bg-brand-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-800">Answer from your sources</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-800">{t("Answer from your sources", "Jawaban dari sumbermu")}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{result.answer}</p>
               <p className="mt-2 text-xs text-slate-600">{result.message}</p>
             </div>

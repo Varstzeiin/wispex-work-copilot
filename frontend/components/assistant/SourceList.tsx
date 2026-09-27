@@ -5,6 +5,7 @@ import { BadgeCheck, NotebookText } from "lucide-react";
 import Link from "next/link";
 
 import type { KnowledgeResult } from "@/types";
+import { t } from "@/lib/i18n";
 
 function href(r: KnowledgeResult): string | null {
   if (r.kind === "NOTE") return `/knowledge?note=${r.id}`;
@@ -38,14 +39,14 @@ export function SourceList({ sources, cited = [] }: { sources: KnowledgeResult[]
                 title
               )}
               {s.match === "meaning" && (
-                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800">Similar meaning</span>
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800">{t("Similar meaning", "Makna mirip")}</span>
               )}
               {s.verified ? (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                  <BadgeCheck className="h-3.5 w-3.5" aria-hidden /> Confirmed
+                  <BadgeCheck className="h-3.5 w-3.5" aria-hidden /> {t("Confirmed", "Terkonfirmasi")}
                 </span>
               ) : (
-                <span className="text-xs text-slate-500">Not confirmed</span>
+                <span className="text-xs text-slate-500">{t("Not confirmed", "Belum terkonfirmasi")}</span>
               )}
             </div>
             {s.snippet && <p className="mt-1 text-slate-700">{s.snippet}</p>}

@@ -9,6 +9,7 @@ import { useRefreshDocuments } from "@/features/document-ai/hooks";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
 import { DOC_FIELD_LABEL, confidenceStyle } from "@/lib/utils/labels";
+import { t } from "@/lib/i18n";
 import type { DocField, DocumentItem } from "@/types";
 
 const NUMERIC = new Set(["total_value", "quantity", "gross_weight", "net_weight"]);
@@ -64,13 +65,13 @@ export function FieldTable({ doc, onlyPresent = false }: { doc: DocumentItem; on
                     <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{DOC_FIELD_LABEL[f.name] ?? f.name}</span>
                     <span className="text-xs">
                       {f.source === "HUMAN" ? (
-                        <span className="font-semibold text-emerald-700">{f.status === "VERIFIED" ? "Verified by you" : "Entered by you"}</span>
+                        <span className="font-semibold text-emerald-700">{f.status === "VERIFIED" ? t("Verified by you", "Diverifikasi olehmu") : t("Entered by you", "Diisi olehmu")}</span>
                       ) : f.value !== null ? (
                         <span className={clsx("font-semibold tabular-nums", confidenceStyle(f.confidence))}>
                           AI {Math.round(f.confidence * 100)}%
                         </span>
                       ) : (
-                        <span className="text-slate-400">not found</span>
+                        <span className="text-slate-400">{t("not found", "tidak ditemukan")}</span>
                       )}
                     </span>
                   </div>
@@ -86,9 +87,13 @@ export function FieldTable({ doc, onlyPresent = false }: { doc: DocumentItem; on
                     </p>
                   ))}
                   {review && !f.rule_messages.length && f.value !== null && (
-                    <p className="text-xs text-amber-800">⚠️ Low confidence. Check against the source document.</p>
+                    <p className="text-xs text-amber-800">
+                      ⚠️ {t("Low confidence. Check against the source document.", "Keyakinan rendah. Cek dengan dokumen sumber.")}
+                    </p>
                   )}
-                  {f.evidence && f.source === "AI" && <p className="text-[11px] text-slate-400">Found at: {f.evidence}</p>}
+                  {f.evidence && f.source === "AI" && <p className="text-[11px] text-slate-400">
+                      {t("Found at", "Ditemukan di")}: {f.evidence}
+                    </p>}
                   {f.status !== "VERIFIED" && (
                     <div className="mt-1.5 flex gap-2">
                       {f.value !== null && !f.rule_messages.length && (
@@ -97,7 +102,7 @@ export function FieldTable({ doc, onlyPresent = false }: { doc: DocumentItem; on
                           disabled={!online || busy !== null}
                           className="rounded-lg border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-800 disabled:opacity-50"
                         >
-                          {busy === f.name ? "Saving…" : "Confirm value"}
+                          {busy === f.name ? t("Saving…", "Menyimpan…") : t("Confirm value", "Konfirmasi nilai")}
                         </button>
                       )}
                       <button
@@ -109,7 +114,7 @@ export function FieldTable({ doc, onlyPresent = false }: { doc: DocumentItem; on
                         disabled={!online || busy !== null}
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 disabled:opacity-50"
                       >
-                        <Pencil className="h-3 w-3" aria-hidden /> {f.value === null ? "Enter value" : "Correct"}
+                        <Pencil className="h-3 w-3" aria-hidden /> {f.value === null ? t("Enter value", "Isi nilai") : t("Correct", "Koreksi")}
                       </button>
                     </div>
                   )}
@@ -125,12 +130,12 @@ export function FieldTable({ doc, onlyPresent = false }: { doc: DocumentItem; on
         <div className="space-y-3">
           {editing?.value && (
             <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-              AI reading: <strong>{editing.value}</strong>
+              {t("AI reading", "Bacaan AI")}: <strong>{editing.value}</strong>
               {editing.source === "AI" && ` (${Math.round(editing.confidence * 100)}%)`}
             </p>
           )}
           <label className="block text-sm font-medium text-slate-700" htmlFor="field-value">
-            Value from the source document
+            {t("Value from the source document", "Nilai dari dokumen sumber")}
           </label>
           <input
             id="field-value"
@@ -140,7 +145,12 @@ export function FieldTable({ doc, onlyPresent = false }: { doc: DocumentItem; on
             inputMode={editing && NUMERIC.has(editing.name) ? "decimal" : undefined}
           />
           {editing && NUMERIC.has(editing.name) && (
-            <p className="text-xs text-slate-500">Use a dot for decimals and no thousands separators, for example 1500 or 1500.50.</p>
+            <p className="text-xs text-slate-500">
+              {t(
+                "Use a dot for decimals and no thousands separators, for example 1500 or 1500.50.",
+                "Pakai titik untuk desimal dan tanpa pemisah ribuan, misalnya 1500 atau 1500.50.",
+              )}
+            </p>
           )}
           {editing && (editing.name.endsWith("_date")) && <p className="text-xs text-slate-500">Format: YYYY-MM-DD</p>}
           <InlineError message={error} />
@@ -153,9 +163,14 @@ export function FieldTable({ doc, onlyPresent = false }: { doc: DocumentItem; on
               }
             }}
           >
-            Save as verified
+            {t("Save as verified", "Simpan sebagai terverifikasi")}
           </Button>
-          <p className="text-xs text-slate-500">Saved values count as checked by you. They are compared with the other documents again.</p>
+          <p className="text-xs text-slate-500">
+            {t(
+              "Saved values count as checked by you. They are compared with the other documents again.",
+              "Nilai yang disimpan dihitung sudah kamu cek. Nilainya dibandingkan lagi dengan dokumen lain.",
+            )}
+          </p>
         </div>
       </Modal>
     </div>

@@ -2,6 +2,7 @@
 
 import clsx from "clsx";
 import { useState } from "react";
+import { t } from "@/lib/i18n";
 
 /**
  * Single-series bar charts built from plain HTML.
@@ -76,10 +77,10 @@ export function ColumnChart({ data, title, height = 120 }: { data: Datum[]; titl
 }
 
 /** Horizontal bars for a ranked breakdown (magnitude, one hue). */
-export function BarList({ data, title, empty = "No data yet" }: { data: Datum[]; title: string; empty?: string }) {
+export function BarList({ data, title, empty }: { data: Datum[]; title: string; empty?: string }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   const shown = data.filter((d) => d.value > 0);
-  if (!shown.length) return <p className="text-sm text-slate-500">{empty}</p>;
+  if (!shown.length) return <p className="text-sm text-slate-500">{empty ?? t("No data yet", "Belum ada data")}</p>;
   return (
     <figure>
       <figcaption className="sr-only">{title}</figcaption>

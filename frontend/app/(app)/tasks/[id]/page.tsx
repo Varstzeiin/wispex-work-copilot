@@ -225,7 +225,7 @@ export default function TaskDetailPage() {
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
-            {t("Keep task", "Simpan task")}
+            {t("Keep task", "Jangan hapus")}
           </Button>
           <Button variant="danger" loading={deleting} onClick={remove}>
             {t("Delete", "Hapus")}

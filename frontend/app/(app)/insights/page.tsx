@@ -11,6 +11,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { useAnalytics, useForecast, usePatterns, useRefreshAutomation } from "@/features/automation/hooks";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
+import { dateLocale, t } from "@/lib/i18n";
 import { FORECAST_STATUS, ISSUE_LABEL } from "@/lib/utils/labels";
 import { formatMinutes } from "@/lib/utils/time";
 import type { Finding, IssueType } from "@/types";
@@ -21,15 +22,21 @@ export default function InsightsPage() {
   const [tab, setTab] = useState<Tab>("forecast");
   return (
     <div className="space-y-4">
-      <PageHeader title="Insights" subtitle="Forecasts and patterns from your own records. Information only: nothing changes automatically." />
+      <PageHeader
+        title={t("Insights", "Insight")}
+        subtitle={t(
+          "Forecasts and patterns from your own records. Information only: nothing changes automatically.",
+          "Perkiraan dan pola dari catatanmu sendiri. Hanya informasi: tidak ada yang berubah otomatis.",
+        )}
+      />
       <Tabs
-        label="Insights"
+        label={t("Insights", "Insight")}
         value={tab}
         onChange={setTab}
         tabs={[
-          { key: "forecast", label: "Workload" },
-          { key: "patterns", label: "Patterns" },
-          { key: "analytics", label: "Analytics" },
+          { key: "forecast", label: t("Workload", "Beban kerja") },
+          { key: "patterns", label: t("Patterns", "Pola") },
+          { key: "analytics", label: t("Analytics", "Analitik") },
         ]}
       />
       {tab === "forecast" && <ForecastView />}
@@ -57,7 +64,7 @@ function ForecastView() {
         </ul>
       )}
       <Card>
-        <SectionTitle>Next working days</SectionTitle>
+        <SectionTitle>{t("Next working days", "Hari kerja berikutnya")}</SectionTitle>
         <ul className="space-y-4">
           {data.days.map((d) => {
             const s = FORECAST_STATUS[d.status];
@@ -77,16 +84,20 @@ function ForecastView() {
                   )}
                 </div>
                 <p className="mt-1 text-xs text-slate-600">
-                  Expected {formatMinutes(d.expected_minutes)} · shift {formatMinutes(d.capacity_minutes)}. {d.explanation}
+                  {t("Expected", "Perkiraan")} {formatMinutes(d.expected_minutes)} · shift {formatMinutes(d.capacity_minutes)}. {d.explanation}
                 </p>
                 {d.task_refs.length > 0 && (
                   <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs">
-                    {d.task_refs.map((t) => (
-                      <Link key={t.id} href={`/tasks/${t.id}`} className="font-semibold text-brand-700">
-                        {t.label}
+                    {d.task_refs.map((ref) => (
+                      <Link key={ref.id} href={`/tasks/${ref.id}`} className="font-semibold text-brand-700">
+                        {ref.label}
                       </Link>
                     ))}
-                    {d.known_tasks > d.task_refs.length && <span className="text-slate-500">+{d.known_tasks - d.task_refs.length} more</span>}
+                    {d.known_tasks > d.task_refs.length && (
+                      <span className="text-slate-500">
+                        +{d.known_tasks - d.task_refs.length} {t("more", "lagi")}
+                      </span>
+                    )}
                   </p>
                 )}
               </li>
@@ -94,23 +105,31 @@ function ForecastView() {
           })}
         </ul>
         <p className="mt-4 text-xs text-slate-500">
-          Bar: expected work. Line: your shift. Expected work is the larger of the tasks already due and a typical day, based on{" "}
-          {data.history_tasks} completed tasks. {data.note}
+          {t(
+            `Bar: expected work. Line: your shift. Expected work is the larger of the tasks already due and a typical day, based on ${data.history_tasks} completed tasks.`,
+            `Batang: perkiraan kerja. Garis: shift kamu. Perkiraan kerja adalah yang lebih besar antara task yang sudah jatuh tempo dan hari biasa, berdasarkan ${data.history_tasks} task selesai.`,
+          )}{" "}
+          {data.note}
         </p>
       </Card>
       {data.calibration.tasks > 0 && (
         <Card>
-          <SectionTitle>How long your tasks really take</SectionTitle>
+          <SectionTitle>{t("How long your tasks really take", "Berapa lama task-mu sebenarnya")}</SectionTitle>
           <p className="text-sm text-slate-700">
-            On average {Math.round(data.calibration.ratio * 100)}% of the estimate ({data.calibration.tasks} tasks).
+            {t(
+              `On average ${Math.round(data.calibration.ratio * 100)}% of the estimate (${data.calibration.tasks} tasks).`,
+              `Rata-rata ${Math.round(data.calibration.ratio * 100)}% dari estimasi (${data.calibration.tasks} task).`,
+            )}
             {Object.entries(data.calibration.by_mode).map(([mode, v]) => (
               <span key={mode}>
                 {" "}
-                {mode === "AIR" ? "Air" : "Sea"}: {Math.round(v.ratio * 100)}% ({v.tasks} tasks).
+                {mode === "AIR" ? t("Air", "Udara") : t("Sea", "Laut")}: {Math.round(v.ratio * 100)}% ({v.tasks} {t("tasks", "task")}).
               </span>
             ))}
           </p>
-          <p className="mt-1 text-xs text-slate-500">The forecast uses these ratios. Your task estimates are not changed.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {t("The forecast uses these ratios. Your task estimates are not changed.", "Perkiraan memakai rasio ini. Estimasi task kamu tidak diubah.")}
+          </p>
         </Card>
       )}
     </div>
@@ -135,7 +154,7 @@ function PatternsView() {
     try {
       await api.post(`/api/automation/suggestions/${action}`, { key: f.key });
       await refresh();
-      setMessage(action === "learn" ? `Added to your learning tracker: “${f.suggestion}”` : null);
+      setMessage(action === "learn" ? t(`Added to your learning tracker: “${f.suggestion}”`, `Ditambahkan ke daftar belajarmu: “${f.suggestion}”`) : null);
     } catch (e) {
       setActionError(errorMessage(e));
     } finally {
@@ -152,11 +171,11 @@ function PatternsView() {
         <p className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
           <EyeOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
-            Patterns per client are off. Only overall patterns are shown.{" "}
+            {t("Patterns per client are off. Only overall patterns are shown.", "Pola per klien dimatikan. Hanya pola keseluruhan yang ditampilkan.")}{" "}
             <Link href="/settings#automation" className="font-semibold text-brand-700">
-              Switch on in Settings
+              {t("Switch on in Settings", "Aktifkan di Pengaturan")}
             </Link>{" "}
-            if your organization permits analysing work per client.
+            {t("if your organization permits analysing work per client.", "kalau organisasi kamu mengizinkan analisis pekerjaan per klien.")}
           </span>
         </p>
       )}
@@ -167,7 +186,12 @@ function PatternsView() {
       )}
       <InlineError message={actionError} />
       {open.length === 0 ? (
-        <EmptyState title="No new patterns">Based on {data.tasks_analysed} tasks in the last {data.days} days.</EmptyState>
+        <EmptyState title={t("No new patterns", "Belum ada pola baru")}>
+          {t(
+            `Based on ${data.tasks_analysed} tasks in the last ${data.days} days.`,
+            `Berdasarkan ${data.tasks_analysed} task dalam ${data.days} hari terakhir.`,
+          )}
+        </EmptyState>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {open.map((f) => (
@@ -182,10 +206,10 @@ function PatternsView() {
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => act(f, "learn")} loading={busy === f.key} disabled={!online || !!busy}>
-                  <GraduationCap className="h-4 w-4" aria-hidden /> Add to learning
+                  <GraduationCap className="h-4 w-4" aria-hidden /> {t("Add to learning", "Tambah ke belajar")}
                 </Button>
                 <Button variant="ghost" onClick={() => act(f, "dismiss")} disabled={!online || !!busy}>
-                  <X className="h-4 w-4" aria-hidden /> Dismiss
+                  <X className="h-4 w-4" aria-hidden /> {t("Dismiss", "Abaikan")}
                 </Button>
               </div>
             </Card>
@@ -194,7 +218,9 @@ function PatternsView() {
       )}
       {handled.length > 0 && (
         <button onClick={() => setShowHandled(!showHandled)} className="text-sm font-semibold text-brand-700">
-          {showHandled ? "Hide" : "Show"} {handled.length} handled pattern{handled.length > 1 ? "s" : ""}
+          {showHandled
+            ? t(`Hide ${handled.length} handled pattern${handled.length > 1 ? "s" : ""}`, `Sembunyikan ${handled.length} pola yang sudah ditangani`)
+            : t(`Show ${handled.length} handled pattern${handled.length > 1 ? "s" : ""}`, `Tampilkan ${handled.length} pola yang sudah ditangani`)}
         </button>
       )}
       {showHandled && (
@@ -206,7 +232,10 @@ function PatternsView() {
           ))}
         </ul>
       )}
-      <p className="text-xs text-slate-500">{data.note} Suggestions never change your tasks, settings or official SOP.</p>
+      <p className="text-xs text-slate-500">
+        {data.note}{" "}
+        {t("Suggestions never change your tasks, settings or official SOP.", "Saran tidak pernah mengubah task, pengaturan, atau SOP resmi.")}
+      </p>
     </div>
   );
 }
@@ -215,39 +244,51 @@ function AnalyticsView() {
   const { data, error, mutate } = useAnalytics();
   if (error) return <ErrorState message={errorMessage(error)} onRetry={() => mutate()} />;
   if (!data) return <Spinner />;
-  if (data.total_completed === 0) return <EmptyState title="No completed tasks yet">Analytics appear once you complete tasks.</EmptyState>;
-  const week = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  if (data.total_completed === 0)
+    return (
+      <EmptyState title={t("No completed tasks yet", "Belum ada task selesai")}>
+        {t("Analytics appear once you complete tasks.", "Analitik muncul setelah kamu menyelesaikan task.")}
+      </EmptyState>
+    );
+  const week = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale(), { day: "numeric", month: "short" });
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card>
-        <SectionTitle>Completed per week</SectionTitle>
+        <SectionTitle>{t("Completed per week", "Selesai per minggu")}</SectionTitle>
         <ColumnChart
-          title="Completed tasks per week"
-          data={data.weekly.map((w) => ({ label: week(w.week_start), value: w.completed, detail: `week of ${week(w.week_start)}` }))}
-        />
-      </Card>
-      <Card>
-        <SectionTitle>On time per week (%)</SectionTitle>
-        <ColumnChart
-          title="Share of tasks completed before the deadline, per week"
+          title={t("Completed tasks per week", "Task selesai per minggu")}
           data={data.weekly.map((w) => ({
             label: week(w.week_start),
-            value: w.on_time_pct ?? 0,
-            muted: w.on_time_pct === null,
-            detail: w.on_time_pct === null ? "no tasks with a deadline" : `${w.on_time_pct}% on time`,
+            value: w.completed,
+            detail: `${t("week of", "minggu")} ${week(w.week_start)}`,
           }))}
         />
       </Card>
       <Card>
-        <SectionTitle>Estimate vs actual</SectionTitle>
+        <SectionTitle>{t("On time per week (%)", "Tepat waktu per minggu (%)")}</SectionTitle>
+        <ColumnChart
+          title={t("Share of tasks completed before the deadline, per week", "Persentase task selesai sebelum deadline, per minggu")}
+          data={data.weekly.map((w) => ({
+            label: week(w.week_start),
+            value: w.on_time_pct ?? 0,
+            muted: w.on_time_pct === null,
+            detail:
+              w.on_time_pct === null
+                ? t("no tasks with a deadline", "tidak ada task dengan deadline")
+                : `${w.on_time_pct}% ${t("on time", "tepat waktu")}`,
+          }))}
+        />
+      </Card>
+      <Card>
+        <SectionTitle>{t("Estimate vs actual", "Estimasi vs aktual")}</SectionTitle>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-slate-500">
-              <th className="py-1 font-medium">Mode</th>
-              <th className="py-1 text-right font-medium">Tasks</th>
-              <th className="py-1 text-right font-medium">Estimate</th>
-              <th className="py-1 text-right font-medium">Actual</th>
+              <th className="py-1 font-medium">{t("Mode", "Moda")}</th>
+              <th className="py-1 text-right font-medium">{t("Tasks", "Task")}</th>
+              <th className="py-1 text-right font-medium">{t("Estimate", "Estimasi")}</th>
+              <th className="py-1 text-right font-medium">{t("Actual", "Aktual")}</th>
             </tr>
           </thead>
           <tbody className="tabular-nums">
@@ -265,15 +306,16 @@ function AnalyticsView() {
         </table>
       </Card>
       <Card>
-        <SectionTitle>Processing time by weekday</SectionTitle>
-        <BarList title="Minutes of processing time per weekday" data={data.weekday_minutes.map((d) => ({ label: d.day, value: d.minutes }))} />
+        <SectionTitle>{t("Processing time by weekday", "Waktu pengerjaan per hari")}</SectionTitle>
+        <BarList
+          title={t("Minutes of processing time per weekday", "Menit waktu pengerjaan per hari")} data={data.weekday_minutes.map((d) => ({ label: d.day, value: d.minutes }))} />
       </Card>
       <Card className="md:col-span-2">
-        <SectionTitle>Issues recorded on completed tasks</SectionTitle>
+        <SectionTitle>{t("Issues recorded on completed tasks", "Masalah yang tercatat di task selesai")}</SectionTitle>
         <BarList
-          title="Issues by type"
+          title={t("Issues by type", "Masalah per jenis")}
           data={data.issues.map((i) => ({ label: ISSUE_LABEL[i.type as IssueType] ?? i.type, value: i.count }))}
-          empty="No issues recorded."
+          empty={t("No issues recorded.", "Belum ada masalah tercatat.")}
         />
       </Card>
     </div>

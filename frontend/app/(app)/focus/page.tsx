@@ -12,7 +12,8 @@ import { EmptyState, ErrorState, LinkButton, Spinner } from "@/components/ui";
 import { useNextRecommendation } from "@/features/daily-planner/hooks";
 import { useTask } from "@/features/task-management/hooks";
 import { errorMessage } from "@/lib/api/client";
-import { ISSUE_LABEL } from "@/lib/utils/labels";
+import { ISSUE_LABEL, STATUS_LABEL } from "@/lib/utils/labels";
+import { t } from "@/lib/i18n";
 
 export default function FocusPage() {
   return (
@@ -33,7 +34,7 @@ function Focus() {
 
   const exit = (
     <button onClick={() => router.push(taskId ? `/tasks/${taskId}` : "/")} className="flex items-center gap-1 text-sm font-medium text-slate-500">
-      <X className="h-4 w-4" aria-hidden /> Exit focus
+      <X className="h-4 w-4" aria-hidden /> {t("Exit focus", "Keluar fokus")}
     </button>
   );
 
@@ -42,7 +43,7 @@ function Focus() {
     return (
       <div className="mx-auto max-w-xl space-y-4">
         {exit}
-        <EmptyState title="Nothing to focus on">{next.explanation}</EmptyState>
+        <EmptyState title={t("Nothing to focus on", "Belum ada yang perlu difokuskan")}>{next.explanation}</EmptyState>
       </div>
     );
   }
@@ -51,17 +52,27 @@ function Focus() {
   const closed = task.status === "COMPLETED" || task.status === "CANCELLED";
   const openIssues = task.issues.filter((i) => !i.resolved);
   const nextAction = task.deadline.overdue
-    ? "The deadline has passed. Inform the appropriate person according to the SOP, then complete and verify carefully."
+    ? t(
+        "The deadline has passed. Inform the appropriate person according to the SOP, then complete and verify carefully.",
+        "Deadline sudah lewat. Beri tahu orang yang tepat sesuai SOP, lalu selesaikan dan verifikasi dengan teliti.",
+      )
     : task.missing_documents.length
-    ? `Request ${task.missing_documents.join(", ")}. Continue verifying the documents you already have.`
-    : openIssues.length
-      ? "Verify the open issue against the source documents before continuing."
-      : task.assigned_action || "Process and verify each field against the source documents.";
+      ? t(
+          `Request ${task.missing_documents.join(", ")}. Continue verifying the documents you already have.`,
+          `Minta ${task.missing_documents.join(", ")}. Lanjutkan verifikasi dokumen yang sudah ada.`,
+        )
+      : openIssues.length
+        ? t(
+            "Verify the open issue against the source documents before continuing.",
+            "Verifikasi masalah yang terbuka dengan dokumen sumber sebelum lanjut.",
+          )
+        : task.assigned_action ||
+          t("Process and verify each field against the source documents.", "Proses dan verifikasi setiap field dengan dokumen sumber.");
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <div className="flex items-center justify-between">
-        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold tracking-wide text-white">FOCUS MODE</span>
+        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold tracking-wide text-white">{t("FOCUS MODE", "MODE FOKUS")}</span>
         {exit}
       </div>
 
@@ -72,9 +83,11 @@ function Focus() {
 
       {closed ? (
         <div className="rounded-2xl bg-emerald-50 p-4 text-emerald-900">
-          <p className="font-semibold">Task {task.status.toLowerCase()}.</p>
+          <p className="font-semibold">
+            Task {STATUS_LABEL[task.status].toLowerCase()}.
+          </p>
           <LinkButton href="/focus" variant="primary" className="mt-3">
-            Next recommended task <ArrowRight className="h-4 w-4" aria-hidden />
+            {t("Next recommended task", "Task rekomendasi berikutnya")} <ArrowRight className="h-4 w-4" aria-hidden />
           </LinkButton>
         </div>
       ) : (
@@ -83,7 +96,7 @@ function Focus() {
 
       {!closed && (
         <section className="rounded-2xl border-2 border-brand-600 bg-white p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-brand-700">Next action</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-brand-700">{t("Next action", "Aksi berikutnya")}</p>
           <p className="mt-1 text-lg font-semibold text-slate-900">{nextAction}</p>
           <div className="mt-2">
             <GuidanceChip guidance={task.guidance} />
@@ -94,11 +107,15 @@ function Focus() {
       <DocumentChecklist task={task} disabled={closed} />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Before completing</p>
+        <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{t("Before completing", "Sebelum menyelesaikan")}</p>
         <ul className="space-y-1.5 text-sm">
-          <CheckRow done={task.missing_documents.length === 0} label="All required documents received" />
-          <CheckRow done={openIssues.length === 0} label="No open issues" />
-          <CheckRow done={false} label="Each field verified against the source documents (your confirmation)" />
+          <CheckRow done={task.missing_documents.length === 0} label={t("All required documents received", "Semua dokumen wajib sudah diterima")} />
+          <CheckRow done={openIssues.length === 0} label={t("No open issues", "Tidak ada masalah terbuka")} />
+          <CheckRow done={false} label={t(
+              "Each field verified against the source documents (your confirmation)",
+              "Setiap field sudah diverifikasi dengan dokumen sumber (konfirmasimu)",
+            )}
+          />
         </ul>
         {openIssues.length > 0 && (
           <ul className="mt-3 space-y-2">
@@ -111,7 +128,7 @@ function Focus() {
         )}
         {openIssues.length > 0 && (
           <Link href={`/tasks/${task.id}`} className="mt-2 inline-block text-sm font-semibold text-brand-700">
-            Resolve issues on the task page
+            {t("Resolve issues on the task page", "Selesaikan masalah di halaman task")}
           </Link>
         )}
       </section>

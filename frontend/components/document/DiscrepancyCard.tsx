@@ -10,6 +10,7 @@ import { useRefreshDocuments } from "@/features/document-ai/hooks";
 import { api, errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
 import { DISCREPANCY_STATUS, DOC_FIELD_LABEL } from "@/lib/utils/labels";
+import { t } from "@/lib/i18n";
 import type { DiscrepancyItem } from "@/types";
 
 /** A potential mismatch. The app shows both values and never says which document is correct. */
@@ -42,7 +43,7 @@ export function DiscrepancyCard({ d }: { d: DiscrepancyItem }) {
       <div className="flex items-start justify-between gap-2">
         <h3 className="flex items-center gap-2 font-semibold text-slate-900">
           <Scale className="h-4 w-4 text-red-600" aria-hidden />
-          {open ? "Potential mismatch" : "Mismatch"}: {DOC_FIELD_LABEL[d.field] ?? d.field}
+          {open ? t("Potential mismatch", "Potensi selisih") : t("Mismatch", "Selisih")}: {DOC_FIELD_LABEL[d.field] ?? d.field}
         </h3>
         <Badge className={DISCREPANCY_STATUS[d.status].style}>{DISCREPANCY_STATUS[d.status].label}</Badge>
       </div>
@@ -57,8 +58,12 @@ export function DiscrepancyCard({ d }: { d: DiscrepancyItem }) {
         </div>
       </dl>
       <p className="mt-2 text-xs text-slate-600">
-        {d.difference && d.difference !== "different" && <>Difference: <strong>{d.difference}</strong> · </>}
-        Reading confidence: {Math.round(d.confidence * 100)}%
+        {d.difference && d.difference !== "different" && (
+          <>
+            {t("Difference", "Selisih")}: <strong>{d.difference}</strong> ·{" "}
+          </>
+        )}
+        {t("Reading confidence", "Keyakinan pembacaan")}: {Math.round(d.confidence * 100)}%
       </p>
       {open ? (
         <>
@@ -66,40 +71,46 @@ export function DiscrepancyCard({ d }: { d: DiscrepancyItem }) {
           <p className="mt-1 text-sm font-medium text-slate-900">{d.recommended_action}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button disabled={!online} onClick={() => setAction("RESOLVED")}>
-              Record resolution
+              {t("Record resolution", "Catat penyelesaian")}
             </Button>
             <Button variant="secondary" disabled={!online} onClick={() => setAction("DISMISSED")}>
-              Not a real issue
+              {t("Not a real issue", "Bukan masalah sebenarnya")}
             </Button>
             {d.task_id && (
               <Link
                 href={`/assistant/drafts?kind=DISCREPANCY&task=${d.task_id}&discrepancy=${d.id}`}
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50"
               >
-                <Mail className="h-4 w-4" aria-hidden /> Draft a message
+                <Mail className="h-4 w-4" aria-hidden /> {t("Draft a message", "Buat draf pesan")}
               </Link>
             )}
           </div>
         </>
       ) : (
-        d.resolution_note && <p className="mt-2 text-sm text-slate-700">Note: {d.resolution_note}</p>
+        d.resolution_note && <p className="mt-2 text-sm text-slate-700">
+            {t("Note", "Catatan")}: {d.resolution_note}
+          </p>
       )}
 
-      <Modal open={action !== null} title={action === "RESOLVED" ? "Record resolution" : "Dismiss as not an issue"} onClose={() => setAction(null)}>
+      <Modal open={action !== null} title={action === "RESOLVED" ? t("Record resolution", "Catat penyelesaian") : t("Dismiss as not an issue", "Abaikan karena bukan masalah")} onClose={() => setAction(null)}>
         <div className="space-y-3">
           <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
             {d.document_a}: <strong>{d.value_a}</strong> · {d.document_b}: <strong>{d.value_b}</strong>
           </p>
           <Field
-            label={action === "RESOLVED" ? "Which value applies, and who confirmed it?" : "Why is this not a real issue?"}
+            label={
+              action === "RESOLVED"
+                ? t("Which value applies, and who confirmed it?", "Nilai mana yang berlaku, dan siapa yang mengonfirmasi?")
+                : t("Why is this not a real issue?", "Kenapa ini bukan masalah sebenarnya?")
+            }
             htmlFor="resolution-note"
-            hint="Saved with the discrepancy and added to the linked task's notes."
+            hint={t("Saved with the discrepancy and added to the linked task's notes.", "Disimpan bersama selisih ini dan ditambahkan ke catatan task terkait.")}
           >
             <textarea id="resolution-note" rows={3} className={inputClass} value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
           <InlineError message={error} />
           <Button block loading={busy} disabled={!note.trim()} onClick={submit}>
-            Save
+            {t("Save", "Simpan")}
           </Button>
         </div>
       </Modal>
