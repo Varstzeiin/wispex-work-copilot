@@ -7,6 +7,7 @@ import { ErrorState, PageHeader, Spinner } from "@/components/ui";
 import { taskApi, useRefreshTaskData, useTask } from "@/features/task-management/hooks";
 import { errorMessage } from "@/lib/api/client";
 import { useSettings } from "@/lib/hooks";
+import { t } from "@/lib/i18n";
 
 export default function EditTaskPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,11 +21,11 @@ export default function EditTaskPage() {
   if (!task || !settings) return <Spinner />;
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader title={`Edit ${task.shipment_reference ?? task.title}`} />
+      <PageHeader title={`${t("Edit", "Ubah")} ${task.shipment_reference ?? task.title}`} />
       <TaskForm
         initial={task}
         timeZone={timezone}
-        submitLabel="Save changes"
+        submitLabel={t("Save changes", "Simpan perubahan")}
         onCancel={() => router.back()}
         onSubmit={async (payload) => {
           await taskApi.update(task.id, payload);

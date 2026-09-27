@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { t } from "@/lib/i18n";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -89,10 +90,10 @@ export function Badge({ className, children }: { className?: string; children: R
   );
 }
 
-export function Spinner({ label = "Loading…" }: { label?: string }) {
+export function Spinner({ label }: { label?: string }) {
   return (
     <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500" role="status">
-      <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> {label}
+      <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> {label ?? t("Loading…", "Memuat…")}
     </div>
   );
 }
@@ -106,7 +107,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
           <p>{message}</p>
           {onRetry && (
             <button onClick={onRetry} className="mt-2 font-semibold underline underline-offset-2">
-              Try again
+              {t("Try again", "Coba lagi")}
             </button>
           )}
         </div>
@@ -153,7 +154,7 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-1 text-slate-500 hover:bg-slate-100" aria-label="Close">
+          <button onClick={onClose} className="rounded-full p-1 text-slate-500 hover:bg-slate-100" aria-label={t("Close", "Tutup")}>
             <X className="h-5 w-5" />
           </button>
         </div>

@@ -17,6 +17,7 @@ import { errorMessage } from "@/lib/api/client";
 import { useOnline, useSettings } from "@/lib/hooks";
 import { GUIDANCE } from "@/lib/utils/labels";
 import { formatDateTime, formatMinutes } from "@/lib/utils/time";
+import { t } from "@/lib/i18n";
 
 export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -54,13 +55,13 @@ export default function TaskDetailPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <button onClick={() => router.back()} className="flex items-center gap-1 text-sm font-medium text-slate-600">
-          <ArrowLeft className="h-4 w-4" aria-hidden /> Back
+          <ArrowLeft className="h-4 w-4" aria-hidden /> {t("Back", "Kembali")}
         </button>
         <div className="flex gap-1">
           <LinkButton href={`/tasks/${task.id}/edit`} variant="ghost">
-            <Pencil className="h-4 w-4" aria-hidden /> Edit
+            <Pencil className="h-4 w-4" aria-hidden /> {t("Edit", "Ubah")}
           </LinkButton>
-          <Button variant="ghost" onClick={() => setConfirmDelete(true)} disabled={!online} aria-label="Delete task">
+          <Button variant="ghost" onClick={() => setConfirmDelete(true)} disabled={!online} aria-label={t("Delete task", "Hapus task")}>
             <Trash2 className="h-4 w-4" aria-hidden />
           </Button>
         </div>
@@ -83,7 +84,7 @@ export default function TaskDetailPage() {
             <div className="mt-2 flex flex-wrap gap-2">
               <StatusBadge status={task.status} />
               {task.client_sla_tier === "HIGH" && (
-                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">High priority client</span>
+                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">{t("High priority client", "Klien prioritas tinggi")}</span>
               )}
             </div>
 
@@ -108,7 +109,7 @@ export default function TaskDetailPage() {
               </div>
               <div>
                 <dt className="flex items-center gap-1 text-xs uppercase text-slate-500">
-                  <FileText className="h-3.5 w-3.5" aria-hidden /> Documents
+                  <FileText className="h-3.5 w-3.5" aria-hidden /> {t("Documents", "Dokumen")}
                 </dt>
                 <dd className={task.missing_documents.length ? "font-semibold text-orange-700" : "font-semibold text-slate-900"}>
                   {docsDone} / {task.required_documents.length}
@@ -116,22 +117,22 @@ export default function TaskDetailPage() {
               </div>
               <div>
                 <dt className="flex items-center gap-1 text-xs uppercase text-slate-500">
-                  <TriangleAlert className="h-3.5 w-3.5" aria-hidden /> Issues
+                  <TriangleAlert className="h-3.5 w-3.5" aria-hidden /> {t("Issues", "Masalah")}
                 </dt>
                 <dd className={task.open_issue_count ? "font-semibold text-amber-700" : "font-semibold text-slate-900"}>
-                  {task.open_issue_count ? `${task.open_issue_count} open` : "None"}
+                  {task.open_issue_count ? `${task.open_issue_count} ${t("open", "terbuka")}` : t("None", "Tidak ada")}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase text-slate-500">Estimated</dt>
+                <dt className="text-xs uppercase text-slate-500">{t("Estimated", "Estimasi")}</dt>
                 <dd className="font-semibold text-slate-900">
                   {formatMinutes(task.estimated_minutes)}
-                  {task.actual_minutes !== null && <span className="font-normal text-slate-500"> · actual {formatMinutes(task.actual_minutes)}</span>}
+                  {task.actual_minutes !== null && <span className="font-normal text-slate-500"> · {t("actual", "aktual")} {formatMinutes(task.actual_minutes)}</span>}
                 </dd>
               </div>
               {task.assigned_action && (
                 <div className="col-span-2">
-                  <dt className="text-xs uppercase text-slate-500">Next action</dt>
+                  <dt className="text-xs uppercase text-slate-500">{t("Next action", "Aksi berikutnya")}</dt>
                   <dd className="font-medium text-slate-900">{task.assigned_action}</dd>
                 </div>
               )}
@@ -142,28 +143,30 @@ export default function TaskDetailPage() {
             <section className={`rounded-2xl border p-4 ${g.style}`}>
               <div className="flex items-center gap-2">
                 <GuidanceChip guidance={task.guidance} />
-                <span className="text-xs font-semibold uppercase tracking-wide">Suggested posture</span>
+                <span className="text-xs font-semibold uppercase tracking-wide">{t("Suggested posture", "Sikap yang disarankan")}</span>
               </div>
               <p className="mt-2 text-sm">{task.guidance_reason}</p>
-              <p className="mt-1 text-xs opacity-80">Guidance only. You decide, following the applicable SOP.</p>
+              <p className="mt-1 text-xs opacity-80">
+                {t("Guidance only. You decide, following the applicable SOP.", "Hanya panduan. Kamu yang memutuskan, sesuai SOP yang berlaku.")}
+              </p>
             </section>
           )}
 
           <Card>
-            <SectionTitle>Actions</SectionTitle>
+            <SectionTitle>{t("Actions", "Aksi")}</SectionTitle>
             <StatusActions task={task} />
             {!closed && (
               <LinkButton href={`/focus?task=${task.id}`} block className="mt-2">
-                <Crosshair className="h-4 w-4" aria-hidden /> Open in Focus mode
+                <Crosshair className="h-4 w-4" aria-hidden /> {t("Open in Focus mode", "Buka di Mode fokus")}
               </LinkButton>
             )}
             {!closed && (
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <LinkButton href={`/assistant/unsure?task=${task.id}`}>
-                  <ShieldQuestion className="h-4 w-4" aria-hidden /> I&apos;m not sure
+                  <ShieldQuestion className="h-4 w-4" aria-hidden /> {t("I'm not sure", "Aku tidak yakin")}
                 </LinkButton>
                 <LinkButton href={`/assistant/drafts?task=${task.id}`}>
-                  <Mail className="h-4 w-4" aria-hidden /> Draft message
+                  <Mail className="h-4 w-4" aria-hidden /> {t("Draft message", "Draf pesan")}
                 </LinkButton>
               </div>
             )}
@@ -181,44 +184,51 @@ export default function TaskDetailPage() {
           {!closed && <PriorityBreakdown task={task} />}
           {!closed && <CalendarReminder task={task} />}
           <Card>
-            <SectionTitle>Notes</SectionTitle>
+            <SectionTitle>{t("Notes", "Catatan")}</SectionTitle>
             {task.notes ? (
               <p className="whitespace-pre-wrap text-sm text-slate-700">{task.notes}</p>
             ) : (
-              <p className="text-sm text-slate-500">No notes yet.</p>
+              <p className="text-sm text-slate-500">{t("No notes yet.", "Belum ada catatan.")}</p>
             )}
             <p className="mt-3 text-xs text-slate-400">
-              Created {formatDateTime(task.created_at, timezone)}
-              {task.completed_at && ` · Completed ${formatDateTime(task.completed_at, timezone)}`}
+              {t("Created", "Dibuat")} {formatDateTime(task.created_at, timezone)}
+              {task.completed_at && ` · ${t("Completed", "Selesai")} ${formatDateTime(task.completed_at, timezone)}`}
             </p>
             <Link href="/activity" className="mt-1 inline-block text-xs font-semibold text-brand-700">
-              View activity log
+              {t("View activity log", "Lihat log aktivitas")}
             </Link>
           </Card>
           <Card>
-            <SectionTitle>Found a mistake in submitted work?</SectionTitle>
-            <p className="text-sm text-slate-600">Report it as soon as you confirm it. The workflow guides you step by step.</p>
+            <SectionTitle>{t("Found a mistake in submitted work?", "Menemukan kesalahan di pekerjaan yang sudah dikirim?")}</SectionTitle>
+            <p className="text-sm text-slate-600">
+              {t(
+                "Report it as soon as you confirm it. The workflow guides you step by step.",
+                "Laporkan begitu kamu yakin. Alurnya akan memandu kamu langkah demi langkah.",
+              )}
+            </p>
             <LinkButton href={`/errors/new?task=${task.id}`} className="mt-2">
-              Report an error
+              {t("Report an error", "Laporkan kesalahan")}
             </LinkButton>
           </Card>
         </div>
       </div>
 
-      <Modal open={confirmDelete} title="Delete this task?" onClose={() => setConfirmDelete(false)}>
+      <Modal open={confirmDelete} title={t("Delete this task?", "Hapus task ini?")} onClose={() => setConfirmDelete(false)}>
         <p className="text-sm text-slate-600">
-          This permanently deletes the task and its linked calendar event. The deletion is recorded in your activity log.
-          To keep a record, mark it as cancelled instead.
+          {t(
+            "This permanently deletes the task and its linked calendar event. The deletion is recorded in your activity log. To keep a record, mark it as cancelled instead.",
+            "Ini menghapus task beserta event kalender yang terhubung secara permanen. Penghapusan dicatat di log aktivitas. Kalau ingin tetap ada catatannya, tandai sebagai dibatalkan saja.",
+          )}
         </p>
         <div className="mt-3">
           <InlineError message={deleteError} />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
-            Keep task
+            {t("Keep task", "Simpan task")}
           </Button>
           <Button variant="danger" loading={deleting} onClick={remove}>
-            Delete
+            {t("Delete", "Hapus")}
           </Button>
         </div>
       </Modal>

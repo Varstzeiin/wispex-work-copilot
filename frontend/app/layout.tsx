@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import { ServiceWorkerRegistration } from "@/components/navigation/ServiceWorkerRegistration";
+import { LanguageProvider } from "@/lib/i18n";
 
 import "./globals.css";
 
@@ -27,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
         <ServiceWorkerRegistration />
       </body>
     </html>

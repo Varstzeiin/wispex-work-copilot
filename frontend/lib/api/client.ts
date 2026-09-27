@@ -3,6 +3,8 @@
  * so the httpOnly session cookie is sent automatically and never touched by scripts.
  */
 
+import { t } from "@/lib/i18n";
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -11,7 +13,8 @@ export class ApiError extends Error {
   }
 }
 
-const FRIENDLY_FALLBACK = "Something went wrong. Nothing was changed. Please try again.";
+const friendlyFallback = () =>
+  t("Something went wrong. Nothing was changed. Please try again.", "Terjadi kesalahan. Tidak ada yang diubah. Silakan coba lagi.");
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let response: Response;
@@ -27,7 +30,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError("Cannot reach the server. Check your connection and try again.", 0);
+    throw new ApiError(
+      t("Cannot reach the server. Check your connection and try again.", "Server tidak bisa dihubungi. Cek koneksi kamu lalu coba lagi."),
+      0,
+    );
   }
 
   if (response.status === 204) return undefined as T;
@@ -45,10 +51,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         ? data.message
         : data === null
           ? // Not our API's JSON: a proxy or hosting error page, so the backend was not reached
-            "The server is not reachable right now. Nothing was changed. Please try again later."
+            t(
+              "The server is not reachable right now. Nothing was changed. Please try again later.",
+              "Server sedang tidak bisa dihubungi. Tidak ada yang diubah. Silakan coba lagi nanti.",
+            )
           : response.status >= 500
-            ? FRIENDLY_FALLBACK
-            : "The request could not be completed.";
+            ? friendlyFallback()
+            : t("The request could not be completed.", "Permintaan tidak bisa diselesaikan.");
     throw new ApiError(message, response.status);
   }
   return data as T;
@@ -66,5 +75,5 @@ export const fetcher = <T>(path: string) => api.get<T>(path);
 
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
-  return FRIENDLY_FALLBACK;
+  return friendlyFallback();
 }

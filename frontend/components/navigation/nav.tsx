@@ -28,6 +28,7 @@ import { useSWRConfig } from "swr";
 
 import { api } from "@/lib/api/client";
 import { useMe } from "@/lib/hooks";
+import { LanguageToggle, t } from "@/lib/i18n";
 
 interface NavItem {
   href: string;
@@ -36,25 +37,37 @@ interface NavItem {
   later?: boolean;
 }
 
+/** Nav entry whose label follows the active language. */
+function navItem(href: string, en: string, id: string, icon: LucideIcon, later = false): NavItem {
+  return {
+    href,
+    icon,
+    later,
+    get label() {
+      return t(en, id);
+    },
+  };
+}
+
 export const PRIMARY_NAV: NavItem[] = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/tasks", label: "Tasks", icon: ListTodo },
-  { href: "/documents", label: "Documents", icon: FileStack },
-  { href: "/assistant", label: "Assistant", icon: Bot },
+  navItem("/", "Home", "Beranda", Home),
+  navItem("/tasks", "Tasks", "Task", ListTodo),
+  navItem("/documents", "Documents", "Dokumen", FileStack),
+  navItem("/assistant", "Assistant", "Asisten", Bot),
 ];
 
 export const SECONDARY_NAV: NavItem[] = [
-  { href: "/planner", label: "Daily plan", icon: ListChecks },
-  { href: "/focus", label: "Focus mode", icon: Crosshair },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/reviews", label: "Reviews", icon: NotebookPen },
-  { href: "/errors", label: "Errors", icon: AlertOctagon },
-  { href: "/learning", label: "Learning", icon: GraduationCap },
-  { href: "/growth", label: "Growth", icon: Sprout },
-  { href: "/insights", label: "Insights", icon: LineChart },
-  { href: "/knowledge", label: "Knowledge", icon: BookOpen },
-  { href: "/activity", label: "Activity log", icon: Activity },
-  { href: "/settings", label: "Settings", icon: Settings },
+  navItem("/planner", "Daily plan", "Rencana harian", ListChecks),
+  navItem("/focus", "Focus mode", "Mode fokus", Crosshair),
+  navItem("/calendar", "Calendar", "Kalender", CalendarDays),
+  navItem("/reviews", "Reviews", "Refleksi", NotebookPen),
+  navItem("/errors", "Errors", "Kesalahan", AlertOctagon),
+  navItem("/learning", "Learning", "Belajar", GraduationCap),
+  navItem("/growth", "Growth", "Perkembangan", Sprout),
+  navItem("/insights", "Insights", "Insight", LineChart),
+  navItem("/knowledge", "Knowledge", "Pengetahuan", BookOpen),
+  navItem("/activity", "Activity log", "Log aktivitas", Activity),
+  navItem("/settings", "Settings", "Pengaturan", Settings),
 ];
 
 function isActive(pathname: string, href: string) {
@@ -64,7 +77,7 @@ function isActive(pathname: string, href: string) {
 export function BottomNav() {
   const pathname = usePathname();
   const moreActive = !PRIMARY_NAV.some((i) => isActive(pathname, i.href));
-  const items = [...PRIMARY_NAV, { href: "/more", label: "More", icon: Menu }];
+  const items = [...PRIMARY_NAV, navItem("/more", "More", "Lainnya", Menu)];
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
@@ -128,7 +141,7 @@ export function Sidebar() {
         >
           <Icon className="h-4 w-4" aria-hidden />
           <span className="flex-1">{item.label}</span>
-          {item.later && <span className="rounded bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-500">LATER</span>}
+          {item.later && <span className="rounded bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-500">{t("LATER", "NANTI")}</span>}
         </Link>
       </li>
     );
@@ -161,8 +174,9 @@ export function Sidebar() {
           className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
         >
           <LogOut className="h-4 w-4" aria-hidden />
-          {signingOut ? "Signing out…" : "Sign out"}
+          {signingOut ? t("Signing out…", "Keluar…") : t("Sign out", "Keluar")}
         </button>
+        <LanguageToggle className="mx-3 mt-2" />
         <p className="px-3 pt-3 text-[11px] leading-snug text-slate-400">
           Progress → Verify → Refer → Escalate → Document → Improve
         </p>

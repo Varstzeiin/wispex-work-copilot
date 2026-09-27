@@ -4,15 +4,16 @@ import clsx from "clsx";
 
 import { Badge } from "@/components/ui";
 import { useNow } from "@/lib/hooks";
-import { DEADLINE_STYLE, GUIDANCE, LEVEL_STYLE, STATUS_LABEL } from "@/lib/utils/labels";
+import { DEADLINE_STYLE, GUIDANCE, LEVEL_LABEL, LEVEL_STYLE, STATUS_LABEL } from "@/lib/utils/labels";
 import { formatCountdown } from "@/lib/utils/time";
+import { t } from "@/lib/i18n";
 import type { DeadlineInfo, Guidance, PriorityLevel, TaskStatus } from "@/types";
 
 export function PriorityBadge({ level, score }: { level: PriorityLevel; score?: number }) {
   if (level === "NONE") return null;
   return (
     <Badge className={LEVEL_STYLE[level]}>
-      {level}
+      {LEVEL_LABEL[level]}
       {score !== undefined && <span className="font-normal opacity-80">· {score}</span>}
     </Badge>
   );
@@ -58,7 +59,7 @@ export function Countdown({
   const now = useNow();
   const style = DEADLINE_STYLE[info.status];
   if (!deadline) {
-    return <span className="text-sm text-slate-500">No deadline</span>;
+    return <span className="text-sm text-slate-500">{t("No deadline", "Tanpa deadline")}</span>;
   }
   const { text } = formatCountdown(deadline, now);
   if (size === "lg") {
@@ -66,7 +67,7 @@ export function Countdown({
       <div className={clsx("rounded-2xl px-4 py-3", style.bg)}>
         <p className={clsx("text-xs font-bold tracking-wide", style.text)}>
           <span aria-hidden>{style.dot}</span> {style.label}
-          {info.approaching_critical && " · becomes critical soon"}
+          {info.approaching_critical && t(" · becomes critical soon", " · segera jadi kritis")}
         </p>
         <p className={clsx("font-mono text-4xl font-bold tabular-nums", style.text)} aria-live="off">
           {text}

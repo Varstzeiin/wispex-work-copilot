@@ -1,8 +1,10 @@
 /** Time helpers. All values from the API are UTC ISO strings; display uses the profile timezone. */
 
+import { dateLocale, t } from "@/lib/i18n";
+
 export function formatDateTime(iso: string | null | undefined, timeZone: string): string {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(dateLocale(), {
     timeZone,
     day: "numeric",
     month: "short",
@@ -14,7 +16,7 @@ export function formatDateTime(iso: string | null | undefined, timeZone: string)
 
 export function formatTime(iso: string | null | undefined, timeZone: string): string {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(dateLocale(), {
     timeZone,
     hour: "2-digit",
     minute: "2-digit",
@@ -23,7 +25,7 @@ export function formatTime(iso: string | null | undefined, timeZone: string): st
 }
 
 export function formatFullDate(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(dateLocale(), {
     timeZone,
     weekday: "long",
     day: "numeric",
@@ -31,14 +33,15 @@ export function formatFullDate(date: Date, timeZone: string): string {
   }).format(date);
 }
 
-/** Minutes as "1h 20m" / "2d 3h" / "45m". */
+/** Minutes as "1h 20m" / "2d 3h" / "45m" (Indonesian: "1j 20m" / "2h 3j" / "45m"). */
 export function formatMinutes(minutes: number): string {
   const m = Math.abs(Math.round(minutes));
   const days = Math.floor(m / 1440);
   const hours = Math.floor((m % 1440) / 60);
   const mins = m % 60;
-  if (days) return `${days}d ${hours}h`;
-  if (hours) return `${hours}h ${mins}m`;
+  const [d, h] = [t("d", "h"), t("h", "j")];
+  if (days) return `${days}${d} ${hours}${h}`;
+  if (hours) return `${hours}${h} ${mins}m`;
   return `${mins}m`;
 }
 
@@ -50,7 +53,7 @@ export function formatCountdown(deadlineIso: string, now: number): { text: strin
   if (total >= 86400) {
     const days = Math.floor(total / 86400);
     const hours = Math.floor((total % 86400) / 3600);
-    return { text: `${overdue ? "-" : ""}${days}d ${hours}h`, overdue };
+    return { text: `${overdue ? "-" : ""}${days}${t("d", "h")} ${hours}${t("h", "j")}`, overdue };
   }
   const h = String(Math.floor(total / 3600)).padStart(2, "0");
   const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");

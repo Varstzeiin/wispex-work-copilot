@@ -9,6 +9,7 @@ import { taskApi, useRefreshTaskData } from "@/features/task-management/hooks";
 import { errorMessage } from "@/lib/api/client";
 import { useOnline } from "@/lib/hooks";
 import { FACTOR_LABEL, ISSUE_LABEL } from "@/lib/utils/labels";
+import { t } from "@/lib/i18n";
 import type { Issue, IssueType, Task } from "@/types";
 
 /** Required documents with a one-tap "received" toggle. Supports progressing while waiting. */
@@ -37,10 +38,12 @@ export function DocumentChecklist({ task, disabled }: { task: Task; disabled?: b
   return (
     <Card>
       <SectionTitle>
-        Documents {done}/{task.required_documents.length}
+        {t("Documents", "Dokumen")} {done}/{task.required_documents.length}
       </SectionTitle>
       {task.required_documents.length === 0 ? (
-        <p className="text-sm text-slate-500">No required documents set. Edit the task to add them.</p>
+        <p className="text-sm text-slate-500">
+          {t("No required documents set. Edit the task to add them.", "Belum ada dokumen wajib. Ubah task untuk menambahkannya.")}
+        </p>
       ) : (
         <ul className="space-y-1.5">
           {task.required_documents.map((doc) => {
@@ -60,7 +63,7 @@ export function DocumentChecklist({ task, disabled }: { task: Task; disabled?: b
                   )}
                   <span className="flex-1 font-medium text-slate-800">{doc}</span>
                   <span className={clsx("text-xs font-semibold", has ? "text-emerald-700" : "text-orange-700")}>
-                    {busy === doc ? "Saving…" : has ? "Received" : "Missing"}
+                    {busy === doc ? t("Saving…", "Menyimpan…") : has ? t("Received", "Diterima") : t("Missing", "Kurang")}
                   </span>
                 </button>
               </li>
@@ -69,7 +72,10 @@ export function DocumentChecklist({ task, disabled }: { task: Task; disabled?: b
         </ul>
       )}
       <p className="mt-2 text-xs text-slate-500">
-        Tap to mark a document as received. Uploaded documents are marked automatically once their type is known.
+        {t(
+          "Tap to mark a document as received. Uploaded documents are marked automatically once their type is known.",
+          "Ketuk untuk menandai dokumen sudah diterima. Dokumen yang diunggah ditandai otomatis setelah jenisnya diketahui.",
+        )}
       </p>
       <div className="mt-2">
         <InlineError message={error} />
@@ -141,14 +147,14 @@ export function IssueList({ task, disabled }: { task: Task; disabled?: boolean }
               disabled={!online}
               className="flex items-center gap-1 text-sm font-semibold text-brand-700 disabled:text-slate-400"
             >
-              <Plus className="h-4 w-4" aria-hidden /> Add issue
+              <Plus className="h-4 w-4" aria-hidden /> {t("Add issue", "Tambah masalah")}
             </button>
           )
         }
       >
-        Issues {open.length > 0 && `· ${open.length} open`}
+        {t("Issues", "Masalah")} {open.length > 0 && `· ${open.length} ${t("open", "terbuka")}`}
       </SectionTitle>
-      {task.issues.length === 0 && <p className="text-sm text-slate-500">No issues recorded.</p>}
+      {task.issues.length === 0 && <p className="text-sm text-slate-500">{t("No issues recorded.", "Belum ada masalah yang dicatat.")}</p>}
       <ul className="space-y-2">
         {open.map((issue) => (
           <li key={issue.id} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
@@ -160,7 +166,7 @@ export function IssueList({ task, disabled }: { task: Task; disabled?: boolean }
                 disabled={!online}
                 className="mt-2 flex items-center gap-1 text-xs font-semibold text-amber-900 underline disabled:no-underline disabled:opacity-60"
               >
-                <Check className="h-3.5 w-3.5" aria-hidden /> Mark resolved
+                <Check className="h-3.5 w-3.5" aria-hidden /> {t("Mark resolved", "Tandai selesai")}
               </button>
             )}
           </li>
@@ -171,57 +177,67 @@ export function IssueList({ task, disabled }: { task: Task; disabled?: boolean }
             <p className="mt-0.5">{issue.description}</p>
             {!disabled && (
               <button onClick={() => reopen(issue)} disabled={!online} className="mt-1 flex items-center gap-1 text-xs font-semibold underline">
-                <RotateCcw className="h-3 w-3" aria-hidden /> Reopen
+                <RotateCcw className="h-3 w-3" aria-hidden /> {t("Reopen", "Buka lagi")}
               </button>
             )}
           </li>
         ))}
       </ul>
       <p className="mt-2 text-xs text-slate-500">
-        The app never decides which document is correct. Verify against source documents and follow the applicable SOP.
+        {t(
+          "The app never decides which document is correct. Verify against source documents and follow the applicable SOP.",
+          "Aplikasi tidak pernah memutuskan dokumen mana yang benar. Verifikasi dengan dokumen sumber dan ikuti SOP yang berlaku.",
+        )}
       </p>
 
-      <Modal open={adding} title="Record an issue" onClose={() => setAdding(false)}>
+      <Modal open={adding} title={t("Record an issue", "Catat masalah")} onClose={() => setAdding(false)}>
         <div className="space-y-3">
-          <Field label="Type" htmlFor="issue-type">
+          <Field label={t("Type", "Jenis")} htmlFor="issue-type">
             <select id="issue-type" className={inputClass} value={type} onChange={(e) => setType(e.target.value as IssueType)}>
-              {ISSUE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {ISSUE_LABEL[t]}
+              {ISSUE_TYPES.map((issueType) => (
+                <option key={issueType} value={issueType}>
+                  {ISSUE_LABEL[issueType]}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="What exactly did you find?" htmlFor="issue-desc" hint="Be specific: field, both values, both documents.">
+          <Field
+            label={t("What exactly did you find?", "Apa persisnya yang kamu temukan?")}
+            htmlFor="issue-desc"
+            hint={t("Be specific: field, both values, both documents.", "Tulis spesifik: field, kedua nilai, dan kedua dokumen.")}
+          >
             <textarea
               id="issue-desc"
               rows={3}
               className={inputClass}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Invoice net weight 850 KG vs Packing List 890 KG"
+              placeholder={t("e.g. Invoice net weight 850 KG vs Packing List 890 KG", "mis. Berat bersih di Invoice 850 KG vs Packing List 890 KG")}
             />
           </Field>
           <InlineError message={error} />
           <Button block onClick={addIssue} loading={saving} disabled={!description.trim()}>
-            Save issue
+            {t("Save issue", "Simpan masalah")}
           </Button>
         </div>
       </Modal>
 
-      <Modal open={resolving !== null} title="Resolve issue" onClose={() => setResolving(null)}>
+      <Modal open={resolving !== null} title={t("Resolve issue", "Selesaikan masalah")} onClose={() => setResolving(null)}>
         <div className="space-y-3">
           <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{resolving?.description}</p>
           <Field
-            label="How was it resolved?"
+            label={t("How was it resolved?", "Bagaimana penyelesaiannya?")}
             htmlFor="resolution"
-            hint="Record the source or instruction, e.g. who confirmed which value. This is added to the task notes."
+            hint={t(
+              "Record the source or instruction, e.g. who confirmed which value. This is added to the task notes.",
+              "Catat sumber atau arahannya, mis. siapa yang mengonfirmasi nilai yang mana. Ini ditambahkan ke catatan task.",
+            )}
           >
             <textarea id="resolution" rows={3} className={inputClass} value={resolution} onChange={(e) => setResolution(e.target.value)} />
           </Field>
           <InlineError message={error} />
           <Button block onClick={resolveIssue} loading={saving} disabled={!resolution.trim()}>
-            Mark resolved
+            {t("Mark resolved", "Tandai selesai")}
           </Button>
         </div>
       </Modal>
@@ -234,7 +250,7 @@ export function PriorityBreakdown({ task }: { task: Task }) {
   if (!task.factors.length) return null;
   return (
     <Card>
-      <SectionTitle>Why this priority</SectionTitle>
+      <SectionTitle>{t("Why this priority", "Kenapa prioritas ini")}</SectionTitle>
       {task.priority_reasons.length > 0 ? (
         <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
           {task.priority_reasons.map((r) => (
@@ -242,7 +258,7 @@ export function PriorityBreakdown({ task }: { task: Task }) {
           ))}
         </ul>
       ) : (
-        <p className="mb-3 text-sm text-slate-500">No urgent factors right now.</p>
+        <p className="mb-3 text-sm text-slate-500">{t("No urgent factors right now.", "Belum ada faktor mendesak.")}</p>
       )}
       <ul className="space-y-1.5">
         {task.factors.map((f) => (
@@ -260,7 +276,9 @@ export function PriorityBreakdown({ task }: { task: Task }) {
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-xs text-slate-500">Weights are your personal settings, not company policy.</p>
+      <p className="mt-2 text-xs text-slate-500">
+        {t("Weights are your personal settings, not company policy.", "Bobot ini pengaturan pribadimu, bukan kebijakan perusahaan.")}
+      </p>
     </Card>
   );
 }
