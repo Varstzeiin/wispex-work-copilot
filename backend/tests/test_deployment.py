@@ -86,3 +86,16 @@ def test_database_storage_keeps_files_encrypted_in_the_database():
     store.delete("u1/d1")
     with pytest.raises(StorageError):
         store.load("u1/d1")
+
+
+def test_database_problems_are_explained_without_connection_details():
+    from app.core.readiness import database_hint
+
+    leaky = Exception('connection to server at "aws-1.pooler.example.com" failed: FATAL: Tenant or user not found')
+    assert database_hint(leaky) == "The pooler host or the user name in DATABASE_URL is wrong."
+    assert "pooler.example.com" not in database_hint(leaky)
+    assert database_hint(ValueError("something else")) == "Database error (ValueError)."
+
+
+def test_backend_root_points_to_the_health_check():
+    assert make_client().get("/").json()["health"] == "/api/health/ready"
