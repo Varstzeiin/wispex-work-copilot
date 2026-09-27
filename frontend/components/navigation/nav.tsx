@@ -14,6 +14,7 @@ import {
   ListChecks,
   LineChart,
   ListTodo,
+  LogOut,
   Menu,
   NotebookPen,
   Settings,
@@ -21,7 +22,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useSWRConfig } from "swr";
+
+import { api } from "@/lib/api/client";
+import { useMe } from "@/lib/hooks";
 
 interface NavItem {
   href: string;
@@ -89,8 +95,24 @@ export function BottomNav() {
   );
 }
 
+/** Ends the session on the server, clears cached data, and goes to the sign-in page. */
+export function useSignOut() {
+  const router = useRouter();
+  const { mutate } = useSWRConfig();
+  const [signingOut, setSigningOut] = useState(false);
+  async function signOut() {
+    setSigningOut(true);
+    await api.post("/api/auth/logout").catch(() => undefined);
+    await mutate(() => true, undefined, { revalidate: false });
+    router.replace("/login");
+  }
+  return { signOut, signingOut };
+}
+
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: user } = useMe();
+  const { signOut, signingOut } = useSignOut();
   const render = (item: NavItem) => {
     const active = isActive(pathname, item.href);
     const Icon = item.icon;
@@ -126,9 +148,25 @@ export function Sidebar() {
         <hr className="my-3 border-slate-200" />
         <ul className="space-y-0.5">{SECONDARY_NAV.map(render)}</ul>
       </nav>
-      <p className="px-3 pt-4 text-[11px] leading-snug text-slate-400">
-        Progress → Verify → Refer → Escalate → Document → Improve
-      </p>
+      <div className="mt-3 border-t border-slate-200 pt-3">
+        {user && (
+          <p className="truncate px-3 text-xs text-slate-500" title={user.email}>
+            {user.email}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={signOut}
+          disabled={signingOut}
+          className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+        >
+          <LogOut className="h-4 w-4" aria-hidden />
+          {signingOut ? "Signing out…" : "Sign out"}
+        </button>
+        <p className="px-3 pt-3 text-[11px] leading-snug text-slate-400">
+          Progress → Verify → Refer → Escalate → Document → Improve
+        </p>
+      </div>
     </aside>
   );
 }

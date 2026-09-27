@@ -2,24 +2,14 @@
 
 import { ChevronRight, LogOut } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useSWRConfig } from "swr";
 
-import { SECONDARY_NAV } from "@/components/navigation/nav";
+import { SECONDARY_NAV, useSignOut } from "@/components/navigation/nav";
 import { PageHeader } from "@/components/ui";
-import { api } from "@/lib/api/client";
 import { useMe } from "@/lib/hooks";
 
 export default function MorePage() {
-  const router = useRouter();
-  const { mutate } = useSWRConfig();
   const { data: user } = useMe();
-
-  async function logout() {
-    await api.post("/api/auth/logout").catch(() => undefined);
-    await mutate(() => true, undefined, { revalidate: false });
-    router.replace("/login");
-  }
+  const { signOut, signingOut } = useSignOut();
 
   return (
     <div>
@@ -40,10 +30,11 @@ export default function MorePage() {
         })}
       </ul>
       <button
-        onClick={logout}
+        onClick={signOut}
+        disabled={signingOut}
         className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white font-semibold text-red-700"
       >
-        <LogOut className="h-4 w-4" aria-hidden /> Sign out
+        <LogOut className="h-4 w-4" aria-hidden /> {signingOut ? "Signing out…" : "Sign out"}
       </button>
       <p className="mt-6 text-center text-xs text-slate-400">
         Progress → Verify → Refer → Escalate → Document → Improve
