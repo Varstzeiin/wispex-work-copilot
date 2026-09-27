@@ -6,6 +6,15 @@ If the app cannot start (usually a missing or malformed environment variable), a
 app answers every request with what is wrong, instead of the platform's bare "500" page.
 """
 
+import sys
+from pathlib import Path
+
+# The `app` package sits next to this file. Some runtimes load this file without putting its
+# folder on the import path, which makes `import app` fail.
+_HERE = str(Path(__file__).resolve().parent)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
 try:
     from app.main import app
 except Exception as exc:  # pragma: no cover - exercised through _fallback_app in tests
@@ -16,6 +25,8 @@ except Exception as exc:  # pragma: no cover - exercised through _fallback_app i
         # Our own start-up checks raise RuntimeError with a safe, fixed message
         if isinstance(error, RuntimeError):
             return str(error)
+        if isinstance(error, ModuleNotFoundError):  # a module name is safe to show
+            return f"Start-up failed: module '{error.name}' was not found."
         errors = getattr(error, "errors", None)
         if callable(errors):  # pydantic: name the settings, never echo their values
             names = sorted({str(e.get("loc", ["?"])[0]).upper() for e in errors()})
