@@ -162,3 +162,19 @@ def test_tokens_are_encrypted_at_rest(client, google):
         assert conn.encrypted_refresh_token != "rt"
         assert conn.encrypted_refresh_token.startswith("gAAAAA")  # Fernet token
         assert decrypt(conn.encrypted_refresh_token) == "rt"
+
+
+def test_calendar_redirect_defaults_to_the_frontend_origin(monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "id.apps.googleusercontent.com")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("FRONTEND_URL", "https://app.example.com/")
+    get_settings.cache_clear()
+    s = get_settings()
+    assert s.google_calendar_configured  # client ID + secret are enough
+    assert s.google_calendar_redirect == "https://app.example.com/api/calendar/google/callback"
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", "https://other.example.com/cb")
+    get_settings.cache_clear()
+    assert get_settings().google_calendar_redirect == "https://other.example.com/cb"
+    get_settings.cache_clear()

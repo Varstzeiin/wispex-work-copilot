@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # Google Calendar (optional, integration is disabled when empty)
     google_client_id: str = ""
     google_client_secret: str = ""
-    google_redirect_uri: str = ""
+    google_redirect_uri: str = ""  # default: {FRONTEND_URL}/api/calendar/google/callback
     frontend_url: str = "http://localhost:3000"
     # Sign in with Google uses the same OAuth client. The callback goes through the frontend origin
     # (Next.js forwards /api to the backend), so the session cookie is set on the app's own domain.
@@ -95,8 +95,13 @@ class Settings(BaseSettings):
         return bool(self.google_client_id and self.google_client_secret)
 
     @property
+    def google_calendar_redirect(self) -> str:
+        # Through the frontend origin like sign-in: the callback needs the user's session cookie
+        return self.google_redirect_uri or f"{self.frontend_url.rstrip('/')}/api/calendar/google/callback"
+
+    @property
     def google_calendar_configured(self) -> bool:
-        return bool(self.google_client_id and self.google_client_secret and self.google_redirect_uri)
+        return bool(self.google_client_id and self.google_client_secret)
 
 
 @lru_cache

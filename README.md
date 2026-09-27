@@ -322,7 +322,7 @@ Nothing secret is ever sent to the browser.
 | `JWT_SECRET` | backend | Session signing key. **Required in production** |
 | `COOKIE_SECURE` | backend | `true` in staging / production (HTTPS) |
 | `ENCRYPTION_KEY` | backend | Fernet key for OAuth tokens at rest. **Required in production** |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | backend | Enables Google Calendar sync |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | backend | Enables Continue with Google and Google Calendar sync (redirect URIs are derived from `FRONTEND_URL`) |
 | `FRONTEND_URL` | backend | Where the OAuth callback redirects back to |
 | `DEMO_MODE_ENABLED` | backend | Set `false` in production if demo accounts are not wanted |
 | `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | backend | `anthropic` enables Claude document reading and assistant answers. Key falls back to `ANTHROPIC_API_KEY` |
