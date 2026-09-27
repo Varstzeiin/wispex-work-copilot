@@ -104,6 +104,26 @@ test("create, progress and complete a task with verification", async ({ page }) 
   await expect(page.getByText("Task completed").first()).toBeVisible();
 });
 
+test("a task added by mistake can be deleted and disappears from the list", async ({ page }) => {
+  await startDemo(page);
+  await page.goto("/tasks/new");
+  await page.getByLabel("Shipment reference").fill("SHP-MISTAKE");
+  await page.getByLabel("Submission deadline").fill("2030-01-01T10:00");
+  await page.getByRole("button", { name: "Create task" }).click();
+  await expect(page.getByRole("heading", { name: "SHP-MISTAKE" })).toBeVisible();
+
+  await page.goto("/tasks");
+  await expect(page.getByText("SHP-MISTAKE").first()).toBeVisible();
+  await page.getByText("SHP-MISTAKE").first().click();
+  await page.getByRole("button", { name: "Delete task" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page.getByText("SHP-MISTAKE")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText("SHP-MISTAKE")).toHaveCount(0);
+});
+
 test("calendar reminder is honest about the missing integration", async ({ page }) => {
   await startDemo(page);
   await page.goto("/tasks?level=CRITICAL");

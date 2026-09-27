@@ -142,5 +142,6 @@ def change_status(
 @router.delete("/{task_id}", status_code=204)
 def delete_task(task_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     task = task_service.get_task_for_user(db, user, task_id)
-    calendar_service.delete_task_event(db, user, task)  # also removes the Google event if synced
-    task_service.delete_task(db, user, task)
+    # Also removes the Google event if synced. A Google error never keeps the task from being deleted.
+    calendar_service.delete_task_event(db, user, task, strict=False, commit=False)
+    task_service.delete_task(db, user, task)  # one commit for the reminder and the task
