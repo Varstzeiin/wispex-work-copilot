@@ -38,7 +38,7 @@ function UnsureForm() {
   const [issue, setIssue] = useState("");
   const [evidence, setEvidence] = useState("");
   const [ask, setAsk] = useState("");
-  const [greeting, setGreeting] = useState(() => t("Hi", "Halo"));
+  const [greeting, setGreeting] = useState("Hi"); // the drafted question is in English
   const [askedTo, setAskedTo] = useState("Senior");
   const [compliance, setCompliance] = useState(false);
   const [financial, setFinancial] = useState(false);
@@ -122,7 +122,14 @@ function UnsureForm() {
           </Field>
         </div>
         <div className="mt-3 space-y-3">
-          <Field label={t("What is unclear?", "Apa yang belum jelas?")} htmlFor="issue">
+          <Field
+            label={t("What is unclear?", "Apa yang belum jelas?")}
+            htmlFor="issue"
+            hint={t(
+              "Write in English: these fields go into the drafted question as written.",
+              "Tulis dalam bahasa Inggris: isian ini masuk ke draf pertanyaan persis seperti yang kamu tulis.",
+            )}
+          >
             <textarea id="issue" rows={2} className={inputClass} value={issue} onChange={(e) => setIssue(e.target.value)} placeholder={t("e.g. The Invoice and Packing List show different quantities", "mis. Invoice dan Packing List menunjukkan jumlah berbeda")} maxLength={1000} />
           </Field>
           <Field

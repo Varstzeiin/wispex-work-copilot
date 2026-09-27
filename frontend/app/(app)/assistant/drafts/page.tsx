@@ -21,6 +21,18 @@ import type { CommunicationDraft, DraftKind, GeneratedDraft } from "@/types";
 
 const KINDS = Object.keys(DRAFT_KIND_LABEL) as DraftKind[];
 
+type EscalationReason = "DISCREPANCY" | "MISSING_DOCUMENTS" | "UNREADABLE" | "DEADLINE" | "OTHER";
+
+function escalationReasons(): { key: EscalationReason; label: string }[] {
+  return [
+    { key: "DISCREPANCY", label: t("Differences between documents", "Perbedaan antar dokumen") },
+    { key: "MISSING_DOCUMENTS", label: t("Missing documents", "Dokumen kurang") },
+    { key: "UNREADABLE", label: t("Values that are hard to read", "Nilai yang sulit dibaca") },
+    { key: "DEADLINE", label: t("Deadline at risk", "Deadline berisiko") },
+    { key: "OTHER", label: t("Something else (describe it)", "Hal lain (jelaskan)") },
+  ];
+}
+
 export default function DraftsPage() {
   return (
     <Suspense fallback={<Spinner />}>
@@ -38,7 +50,9 @@ function Drafts() {
   const [kind, setKind] = useState<DraftKind>((params.get("kind") as DraftKind) || "CLARIFICATION");
   const [taskId, setTaskId] = useState(params.get("task") ?? "");
   const [errorId, setErrorId] = useState(params.get("error") ?? "");
-  const [greeting, setGreeting] = useState(() => t("Hi", "Halo"));
+  // The message itself is always in English, whatever the app language
+  const [greeting, setGreeting] = useState("Hi");
+  const [reason, setReason] = useState<EscalationReason>("DISCREPANCY");
   const [note, setNote] = useState("");
   const [draft, setDraft] = useState<GeneratedDraft | null>(null);
   const [recipient, setRecipient] = useState("");
@@ -65,6 +79,7 @@ function Drafts() {
           discrepancy_id: params.get("discrepancy") || null,
           greeting,
           note,
+          reason: kind === "ESCALATION" ? reason : "",
         }),
       );
     } catch (e) {
@@ -145,17 +160,41 @@ function Drafts() {
             <input id="recipient" className={inputClass} value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder={t("e.g. Forwarder contact", "mis. Kontak forwarder")} maxLength={120} />
           </Field>
         </div>
+        {kind === "ESCALATION" && (
+          <div className="mt-3">
+            <Field
+              label={t("What are you escalating?", "Apa yang dieskalasi?")}
+              htmlFor="reason"
+              hint={t(
+                "The message covers only this, using the facts recorded on the task.",
+                "Pesan hanya membahas ini, memakai fakta yang tercatat di task.",
+              )}
+            >
+              <select id="reason" className={inputClass} value={reason} onChange={(e) => setReason(e.target.value as EscalationReason)}>
+                {escalationReasons().map((r) => (
+                  <option key={r.key} value={r.key}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        )}
         {needsNote && (
           <div className="mt-3">
             <Field
               label={
                 kind === "STATUS_UPDATE"
                   ? t("Next step (optional)", "Langkah berikutnya (opsional)")
-                  : kind === "CORRECTION"
-                    ? t("Extra note (optional)", "Catatan tambahan (opsional)")
+                  : kind === "CORRECTION" || (kind === "ESCALATION" && reason !== "OTHER")
+                    ? t("Extra detail (optional)", "Detail tambahan (opsional)")
                     : t("What do you need?", "Apa yang kamu butuhkan?")
               }
               htmlFor="note"
+              hint={t(
+                "Write it in English: it goes into the message exactly as written.",
+                "Tulis dalam bahasa Inggris: teks ini masuk ke pesan persis seperti yang kamu tulis.",
+              )}
             >
               <textarea id="note" rows={2} className={inputClass} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
             </Field>

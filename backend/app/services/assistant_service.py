@@ -58,6 +58,17 @@ DRAFT_LABEL = {
 }
 
 
+MISMATCH_ISSUE_LABEL = {
+    "QUANTITY_MISMATCH": "Quantity mismatch",
+    "WEIGHT_MISMATCH": "Weight mismatch",
+    "DESCRIPTION_MISMATCH": "Description mismatch",
+    "VALUE_MISMATCH": "Value mismatch",
+}
+
+# What an escalation is about. "" keeps the general message that lists every open point.
+ESCALATION_REASONS = ("", "DISCREPANCY", "MISSING_DOCUMENTS", "UNREADABLE", "DEADLINE", "OTHER")
+
+
 def sentence(text: str) -> str:
     """Trim, capitalise the first letter and make sure it ends with punctuation."""
     text = " ".join((text or "").split())
@@ -92,6 +103,7 @@ def task_context(db: Session, user: User, task: Optional[Task]) -> dict:
             "task_id": None, "shipment_reference": "", "client_name": "", "status": "", "status_label": "",
             "deadline": None, "deadline_sentence": "", "missing_documents": [], "available_documents": [],
             "discrepancies": [], "low_confidence_fields": [], "open_issues": 0,
+            "mismatch_issues": [], "unreadable_issues": [],
         }
     settings = get_user_settings(db, user)
     now = utcnow()
@@ -133,6 +145,7 @@ def task_context(db: Session, user: User, task: Optional[Task]) -> dict:
                     "value_a": d.value_a,
                     "value_b": d.value_b,
                     "difference": d.difference,
+                    "task_issue_id": d.task_issue_id,
                 }
             )
         active_ids = [d.id for d in docs.values() if d.is_active_version]
@@ -148,6 +161,7 @@ def task_context(db: Session, user: User, task: Optional[Task]) -> dict:
                      "confidence": f.confidence}
                 )
 
+    linked_issue_ids = {d["task_issue_id"] for d in discrepancies if d["task_issue_id"]}
     return {
         "task_id": task.id,
         "shipment_reference": ref,
@@ -161,6 +175,14 @@ def task_context(db: Session, user: User, task: Optional[Task]) -> dict:
         "discrepancies": discrepancies,
         "low_confidence_fields": low_conf,
         "open_issues": len(task.open_issues),
+        # Issues recorded by hand on the task. Issues created from a document discrepancy are skipped:
+        # the discrepancy itself is already listed with both values.
+        "mismatch_issues": [
+            {"label": MISMATCH_ISSUE_LABEL[i.get("type")], "description": i.get("description", "")}
+            for i in task.open_issues
+            if i.get("type") in MISMATCH_ISSUE_LABEL and i.get("id") not in linked_issue_ids
+        ],
+        "unreadable_issues": [i.get("description", "") for i in task.open_issues if i.get("type") == "LOW_CONFIDENCE"],
     }
 
 
@@ -397,6 +419,76 @@ def _join(items: list[str]) -> str:
     return ", ".join(items[:-1]) + " and " + items[-1]
 
 
+def _open_points(ctx: dict) -> str:
+    points = []
+    if ctx["discrepancies"] or ctx["mismatch_issues"]:
+        n = len(ctx["discrepancies"]) + len(ctx["mismatch_issues"])
+        points.append(f"{n} open document discrepanc{'y' if n == 1 else 'ies'}")
+    if ctx["missing_documents"]:
+        points.append(f"missing {_join(ctx['missing_documents'])}")
+    unreadable = len(ctx["low_confidence_fields"]) + len(ctx["unreadable_issues"])
+    if unreadable:
+        points.append(f"{unreadable} field(s) that are hard to read")
+    return f"Open points: {_join(points)}." if points else ""
+
+
+def _escalation(ctx: dict, reason: str, note_text: str) -> tuple[str, str, str]:
+    """Issue, evidence and request for an escalation, limited to what is being escalated."""
+    detail = f" {note_text}" if note_text else ""
+    if reason == "DISCREPANCY":
+        lines = [_discrepancy_evidence(d) for d in ctx["discrepancies"]]
+        lines += [sentence(f"{m['label']}: {m['description']}") for m in ctx["mismatch_issues"]]
+        if not lines and not note_text:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "No discrepancy is recorded for this task yet. Record it as an issue on the task, "
+                "or describe it in the note.",
+            )
+        shown = lines[:3] + ([f"There are {len(lines) - 3} more differences."] if len(lines) > 3 else [])
+        return (
+            f"I need your guidance on differences between the shipment documents before I can continue.{detail}",
+            " ".join(shown),
+            "Could you please confirm which values are correct, or advise how to proceed?",
+        )
+    if reason == "MISSING_DOCUMENTS":
+        missing = ctx["missing_documents"]
+        if not missing:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "This task has no missing documents.")
+        received = f" Received so far: {_join(ctx['available_documents'])}." if ctx["available_documents"] else ""
+        return (
+            f"I cannot complete this shipment because some documents are still missing.{detail}",
+            f"Still missing: {_join(missing)}.{received}",
+            "Could you please advise how to proceed, or help me obtain the missing documents?",
+        )
+    if reason == "UNREADABLE":
+        fields = [
+            f"the {FIELD_LABEL.get(f['field'], f['field'].replace('_', ' ')).lower()} on the {f['document']}"
+            for f in ctx["low_confidence_fields"]
+        ] + [d for d in ctx["unreadable_issues"] if d]
+        if not fields and not note_text:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "No hard-to-read field is recorded for this task. Describe it in the note.",
+            )
+        return (
+            f"Some values in the documents are hard to read, so I cannot verify them with confidence.{detail}",
+            f"Affected: {_join(fields[:5])}." if fields else "",
+            "Could you please confirm the correct values or send a clearer copy of the document?",
+        )
+    if reason == "DEADLINE":
+        return (
+            f"The submission deadline for this shipment is at risk.{detail}",
+            _open_points(ctx),
+            "Could you please advise whether I should prioritise this shipment, or how to proceed?",
+        )
+    # General escalation ("" or OTHER): the note is the issue, every open point is the evidence
+    return (
+        note_text or "I need your guidance before I can complete this shipment.",
+        _open_points(ctx),
+        "Could you please advise how to proceed?",
+    )
+
+
 def generate_draft(
     db: Session,
     user: User,
@@ -406,6 +498,7 @@ def generate_draft(
     error_id: Optional[uuid.UUID],
     greeting: str,
     note: str,
+    reason: str = "",
 ) -> dict:
     """Context -> Issue -> Evidence -> Deadline -> Requested action, from the user's own records."""
     error = None
@@ -453,17 +546,7 @@ def generate_draft(
         evidence = _discrepancy_evidence(d)
         request = "Could you please confirm which value is correct, or send a corrected document?"
     elif kind == "ESCALATION":
-        points = []
-        if ctx["discrepancies"]:
-            n = len(ctx["discrepancies"])
-            points.append(f"{n} open document discrepanc{'y' if n == 1 else 'ies'}")
-        if ctx["missing_documents"]:
-            points.append(f"missing {_join(ctx['missing_documents'])}")
-        if ctx["low_confidence_fields"]:
-            points.append(f"{len(ctx['low_confidence_fields'])} field(s) that are hard to read")
-        issue = note_text or "I need your guidance before I can complete this shipment."
-        evidence = f"Open points: {_join(points)}." if points else ""
-        request = "Could you please advise how to proceed?"
+        issue, evidence, request = _escalation(ctx, reason, note_text)
     elif kind == "CORRECTION":
         assert error is not None
         wrong = f" was entered as {error.incorrect_value}" if error.incorrect_value else " was entered incorrectly"
