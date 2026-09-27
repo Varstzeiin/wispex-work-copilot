@@ -178,12 +178,14 @@ class GenerateIn(BaseModel):
     error_id: Optional[uuid.UUID] = None
     greeting: str = Field(default="Hi", max_length=60)
     note: str = Field(default="", max_length=1000)
+    # Escalations only: what is being escalated, so the message covers only that
+    reason: Literal["", "DISCREPANCY", "MISSING_DOCUMENTS", "UNREADABLE", "DEADLINE", "OTHER"] = ""
 
 
 @router.post("/drafts/generate")
 def generate_draft(data: GenerateIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return svc.generate_draft(
-        db, user, data.kind, data.task_id, data.discrepancy_id, data.error_id, data.greeting, data.note
+        db, user, data.kind, data.task_id, data.discrepancy_id, data.error_id, data.greeting, data.note, data.reason
     )
 
 

@@ -388,3 +388,41 @@ def test_questions_asked_clearly_indicator(client):
     client.post("/api/assistant/clarifications", json={"issue": "General", "question": "How does this work?"})
     ind = indicator()
     assert ind["value"] == "50%" and ind["evidence"][0].startswith("1 of 2 recorded questions")
+
+
+def test_escalation_draft_covers_only_what_is_escalated(client):
+    t = task(client, available_documents=["Commercial Invoice"], issues=[
+        {"id": "", "type": "QUANTITY_MISMATCH", "description": "Invoice 1500 units vs Packing List 1550 units",
+         "resolved": False},
+    ])
+    gen = lambda **kw: client.post("/api/assistant/drafts/generate",  # noqa: E731
+                                   json={"kind": "ESCALATION", "task_id": t["id"], **kw})
+
+    diff = gen(reason="DISCREPANCY").json()["body"]
+    assert "differences between the shipment documents" in diff
+    assert "Quantity mismatch: Invoice 1500 units vs Packing List 1550 units." in diff
+    assert "missing" not in diff.lower()  # documents are missing too, but that is not what is escalated
+    assert "confirm which values are correct" in diff
+
+    missing = gen(reason="MISSING_DOCUMENTS").json()["body"]
+    assert "Still missing: Packing List and Bill of Lading. Received so far: Commercial Invoice." in missing
+    assert "mismatch" not in missing.lower()
+
+    general = gen().json()["body"]  # no reason: every open point, as before
+    assert "Open points: 1 open document discrepancy and missing Packing List and Bill of Lading." in general
+
+    assert gen(reason="UNREADABLE").status_code == 400  # nothing hard to read is recorded
+    assert gen(reason="UNREADABLE", note="The gross weight on the Bill of Lading is smudged").status_code == 200
+
+
+def test_escalation_lists_each_document_discrepancy_once(client):
+    r = client.post("/api/demo/start")
+    assert r.status_code in (200, 201), r.text
+    shipments = client.get("/api/documents/shipments").json()
+    ref = next(g["shipment_reference"] for g in shipments if g["open_discrepancies"] > 0)
+    open_tasks = client.get("/api/tasks?view=open&page_size=100").json()["items"]
+    t = next(x for x in open_tasks if x["shipment_reference"] == ref)
+    body = client.post("/api/assistant/drafts/generate",
+                       json={"kind": "ESCALATION", "task_id": t["id"], "reason": "DISCREPANCY"}).json()["body"]
+    # The discrepancy also created an issue on the task: it must not be listed a second time
+    assert "Weight mismatch:" not in body and body.count("850") == 1
