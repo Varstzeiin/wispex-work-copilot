@@ -99,3 +99,17 @@ def test_database_problems_are_explained_without_connection_details():
 
 def test_backend_root_points_to_the_health_check():
     assert make_client().get("/").json()["health"] == "/api/health/ready"
+
+
+def test_vercel_dependencies_match_requirements():
+    import tomllib
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    listed = {
+        line.strip() for line in (root / "requirements.txt").read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+    project = tomllib.loads((root / "pyproject.toml").read_text())
+    assert set(project["project"]["dependencies"]) == listed  # update both files together
+    assert project["tool"]["vercel"]["entrypoint"] == "index:app"
